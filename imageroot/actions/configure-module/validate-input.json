@@ -1,8 +1,44 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "configure-module input",
-    "$id": "http://schema.nethserver.org/piler/configure-module-input.json",
+    "title": "Configure piler",
+    "$id": "http://nethserver.org/json-schema/task/output/piler/configure-module",
     "description": "Configure piler",
-    "examples": [],
-    "type": "object"
+    "examples": [
+        {
+            "host": "piler.nethserver.org",
+            "http2https": true,
+            "lets_encrypt": true,
+            "imap_host": "imap.nethserver.org"
+        }
+    ],
+    "type": "object",
+    "required": [
+        "host",
+        "http2https",
+        "lets_encrypt",
+        "imap_host"
+    ],
+    "properties": {
+        "host": {
+            "description": "Host name for the application, like 'piler.nethserver.org'",
+            "format": "idn-hostname",
+            "title": "hostname of piler User Interface"
+        },
+        "lets_encrypt": {
+            "type": "boolean",
+            "title": "Let's Encrypt certificate",
+            "description": "Request a valid Let's Encrypt certificate."
+        },
+        "http2https": {
+            "type": "boolean",
+            "title": "HTTP to HTTPS redirection",
+            "description": "Redirect all the HTTP requests to HTTPS"
+        },
+        "imap_host": {
+            "type": "string",
+            "title": "IMAP hostname server",
+            "description": "Host name for the imap server (user authentication), like 'imap.nethserver.org'",
+            "format": "idn-hostname"
+        }
+    }
 }
