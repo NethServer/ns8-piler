@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+import os
+import json
+import sys
+# agent is a NethServer library which provides function to communicate with the agent
+import agent
+
+# Try to parse the stdin as JSON.
+# If parsing fails, output everything to stderr
+data = json.load(sys.stdin)
+imap_host = data.get("imap_host")
+
+agent.set_env("IMAP_HOST", imap_host)
+
+# Make sure everything is saved inside the environment file
+# just before starting systemd unit
+agent.dump_env()
