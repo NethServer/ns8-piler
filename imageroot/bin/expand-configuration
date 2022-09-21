@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+import os
+import glob
+import json
+# import sys
+# import subprocess
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+for file in glob.iglob("piler_etc/*"):
+    os.remove(file)
+
+jenv = Environment(
+    loader=FileSystemLoader(os.getenv("AGENT_INSTALL_DIR")+"/templates"),
+    autoescape=select_autoescape(),
+    keep_trailing_newline=True,
+)
+
+properties = {
+    "host":  os.environ.get("TRAEFIK_HOST",''),
+    "imap_host": os.environ.get("IMAP_HOST",''),
+}
+
+json_properties = json.dumps(properties)
+
+template = jenv.get_template('piler.conf')
+output = template.render(json.loads(json_properties))
+with open("piler_etc/piler.conf","w") as f:
+    f.write(output)
+
+template = jenv.get_template('config-site.php')
+output = template.render(json.loads(json_properties))
+with open("piler_etc/config-site.php","w") as f:
+    f.write(output)
