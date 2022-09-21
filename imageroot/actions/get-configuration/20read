@@ -5,10 +5,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
+import os
 import json
 import sys
 import agent
 
+# Prepare return variable
 config = {}
 
+config["host"] = os.environ.get("TRAEFIK_HOST",'')
+config["imap_host"] = os.environ.get("IMAP_HOST",'')
+config["http2https"] =  os.environ.get("TRAEFIK_HTTP2HTTPS","False") == "True"
+config["lets_encrypt"] =  os.environ.get("TRAEFIK_LETS_ENCRYPT","False") == "True"
+config["tcp_port_archive"] = int(os.environ.get("TCP_PORT_ARCHIVE",""))
+# Dump the configuratio to stdout
 json.dump(config, fp=sys.stdout)
