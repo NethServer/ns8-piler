@@ -22,9 +22,20 @@
   },
   "settings": {
     "title": "Settings",
-    "configure_instance": "Configure {instance}",
+    "piler_fqdn": "piler FQDN",
+    "imap_fqdn": "IMAP server FQDN (user authentication)",
     "save": "Save",
-    "test_filed": "Test field"
+    "lets_encrypt": "Let's Encrypt",
+    "http_to_https": "HTTP to HTTPS",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "instance_configuration": "Configure {instance}",
+    "configuring": "Configuring...",
+    "domain_already_used_in_traefik": "This domain is already used in traefik",
+    "placeholder_piler_domain": "Type a fully qualified domain name",
+    "placeholder_imap_server": "Type a fully qualified domain name",
+    "tcp_port_archive": "SMTP TCP port of the archive",
+    "tcp_port_archive_tooltips": "You must send for each domain an hidden copy (Bcc) of received emails to <b>archive@{host}</b> on the smtp {port}/TCP.<br/> For this point you must make a custom transport on your email server :<br/><br/><b>{host} smtp:[{host}]:{port}</b><br/><br/> This can be achieved by the Relay menu of Email application, create a recipent relay host"
   },
   "about": {
     "title": "About"
