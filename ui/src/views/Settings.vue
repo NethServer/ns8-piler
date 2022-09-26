@@ -33,32 +33,26 @@
             >
             </NsTextInput>
             <template v-if="host">
-            <span class="mg-bottom"> 
-              {{ $t('settings.tcp_port_archive')}}
-              <!-- <cv-tooltip
-                alignment="start"
-                direction="right"
-                :tip="$t('settings.tcp_port_archive_tooltips', {port:tcp_port_archive, host:host})"
-                class="info mg-bottom"
+              <NsTextInput
+                :label="$t('settings.tcp_port_archive')"
+                v-model.trim="tcp_port_archive"
+                :invalid-message="$t(error.tcp_port_archive)"
+                disabled
+                ref="tcp_port_archive"
+                tooltipAlignment="center"
+                tooltipDirection="right"
               >
-              </cv-tooltip> -->
-                  <cv-interactive-tooltip
-                    alignment="center"
-                    direction="right"
-                    class="tooltip info mg-bottom"
-                  >
-                    <template slot="trigger"></template>
-                    <template slot="content">
-                      <div
-                        v-html="$t('settings.tcp_port_archive_tooltips', {port:tcp_port_archive, host:host})"
-                      ></div>
-                    </template>
-                  </cv-interactive-tooltip>
-            </span>
-            <span>:</span>
-            <span  class="mg-bottom mg-left" > 
-              {{tcp_port_archive}} 
-            </span>
+                <template slot="tooltip">
+                  <div
+                    v-html="
+                      $t('settings.tcp_port_archive_tooltips', {
+                        port: tcp_port_archive,
+                        host: host,
+                      })
+                    "
+                  ></div>
+                </template>
+              </NsTextInput>
             </template>
             <NsTextInput
               :label="$t('settings.imap_fqdn')"
@@ -71,9 +65,7 @@
               tooltipDirection="right"
             >
               <template slot="tooltip">
-                <div
-                  v-html="$t('settings.imap_fqdn_tooltips')"
-                ></div>
+                <div v-html="$t('settings.imap_fqdn_tooltips')"></div>
               </template>
             </NsTextInput>
             <cv-toggle
@@ -167,6 +159,7 @@ export default {
         admin_password: "",
         lets_encrypt: "",
         http2https: "",
+        tcp_port_archive: "",
       },
     };
   },
