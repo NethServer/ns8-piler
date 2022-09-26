@@ -3,25 +3,25 @@
   SPDX-License-Identifier: GPL-3.0-or-later
 -->
 <template>
-  <div class="bx--grid bx--grid--full-width">
-    <div class="bx--row">
-      <div class="bx--col-lg-16 page-title">
+  <cv-grid fullWidth>
+    <cv-row>
+      <cv-column class="page-title">
         <h2>{{ $t("settings.title") }}</h2>
-      </div>
-    </div>
-    <div v-if="error.getConfiguration" class="bx--row">
-      <div class="bx--col">
+      </cv-column>
+    </cv-row>
+    <cv-row v-if="error.getConfiguration">
+      <cv-column>
         <NsInlineNotification
           kind="error"
           :title="$t('action.get-configuration')"
           :description="error.getConfiguration"
           :showCloseButton="false"
         />
-      </div>
-    </div>
-    <div class="bx--row">
-      <div class="bx--col-lg-16">
-        <cv-tile :light="true">
+      </cv-column>
+    </cv-row>
+    <cv-row>
+      <cv-column>
+        <cv-tile light>
           <cv-form @submit.prevent="configureModule">
             <NsTextInput
               :label="$t('settings.piler_fqdn')"
@@ -96,28 +96,30 @@
                 $t("settings.enabled")
               }}</template>
             </cv-toggle>
-            <div v-if="error.configureModule" class="bx--row">
-              <div class="bx--col">
+            <cv-row v-if="error.configureModule">
+              <cv-column>
                 <NsInlineNotification
                   kind="error"
                   :title="$t('action.configure-module')"
                   :description="error.configureModule"
                   :showCloseButton="false"
                 />
-              </div>
-            </div>
-            <NsButton
-              kind="primary"
-              :icon="Save20"
-              :loading="loading.configureModule"
-              :disabled="loading.getConfiguration || loading.configureModule"
-              >{{ $t("settings.save") }}</NsButton
-            >
+                <NsButton
+                  kind="primary"
+                  :icon="Save20"
+                  :loading="loading.configureModule"
+                  :disabled="loading.getConfiguration || loading.configureModule
+                  "
+                >
+                  {{ $t("settings.save") }}
+                </NsButton>
+              </cv-column>
+            </cv-row>
           </cv-form>
         </cv-tile>
-      </div>
-    </div>
-  </div>
+      </cv-column>
+    </cv-row>
+  </cv-grid>
 </template>
 
 <script>
