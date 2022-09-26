@@ -67,7 +67,14 @@
               :invalid-message="$t(error.imap_host)"
               :disabled="loading.getConfiguration || loading.configureModule"
               ref="imap_host"
+              tooltipAlignment="center"
+              tooltipDirection="right"
             >
+              <template slot="tooltip">
+                <div
+                  v-html="$t('settings.imap_fqdn_tooltips')"
+                ></div>
+              </template>
             </NsTextInput>
             <cv-toggle
               value="letsEncrypt"

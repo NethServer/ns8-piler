@@ -22,10 +22,11 @@
   },
   "settings": {
     "title": "Settings",
-    "piler_fqdn": "piler FQDN",
-    "imap_fqdn": "IMAP server FQDN (user authentication)",
+    "piler_fqdn": "Piler FQDN",
+    "imap_fqdn": "IMAP server FQDN",
+    "imap_fqdn_tooltips":"The authentication to the archive user interface is done through an imap authentication",
     "save": "Save",
-    "lets_encrypt": "Let's Encrypt",
+    "lets_encrypt": "Let's Encrypt certificate",
     "http_to_https": "HTTP to HTTPS",
     "enabled": "Enabled",
     "disabled": "Disabled",
@@ -35,7 +36,7 @@
     "placeholder_piler_domain": "Type a fully qualified domain name",
     "placeholder_imap_server": "Type a fully qualified domain name",
     "tcp_port_archive": "SMTP TCP port of the archive",
-    "tcp_port_archive_tooltips": "You must send for each domain an hidden copy (Bcc) of received emails to <b>archive@{host}</b> on the smtp {port}/TCP.<br/> For this point you must make a custom transport on your email server :<br/><br/><b>{host} smtp:[{host}]:{port}</b><br/><br/> This can be achieved by the Relay menu of Email application, create a recipent relay host"
+    "tcp_port_archive_tooltips": "You must send for each domain an hidden copy (Bcc) of received emails to <b>archive@{host}</b> on the SMTP {port}/TCP."
   },
   "about": {
     "title": "About"
