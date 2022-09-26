@@ -1,12 +1,12 @@
 {
-  "name": "piler",
+  "name": "Piler",
   "description": {
     "en": "Piler is an email archive that keeps your messages in a central repository. Piler archives every email it receives."
   },
   "categories": ["collaboration"],
   "authors": [
     {
-      "name": "stephane de Labrusse",
+      "name": "Stephane de Labrusse",
       "email": "stephdl@de-labrusse.fr"
     }
   ],
