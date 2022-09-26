@@ -104,16 +104,16 @@
                   :description="error.configureModule"
                   :showCloseButton="false"
                 />
-                <NsButton
-                  kind="primary"
-                  :icon="Save20"
-                  :loading="loading.configureModule"
-                  :disabled="loading.getConfiguration || loading.configureModule"
-                >
-                  {{ $t("settings.save") }}
-                </NsButton>
               </cv-column>
             </cv-row>
+            <NsButton
+              kind="primary"
+              :icon="Save20"
+              :loading="loading.configureModule"
+              :disabled="loading.getConfiguration || loading.configureModule"
+            >
+              {{ $t("settings.save") }}
+            </NsButton>
           </cv-form>
         </cv-tile>
       </cv-column>
