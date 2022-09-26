@@ -37,7 +37,7 @@
         "imap_host": {
             "type": "string",
             "title": "IMAP hostname server",
-            "description": "Host name for the imap server (user authentication), like 'imap.nethserver.org'",
+            "description": "Host name for the IMAP server (user authentication), like 'imap.nethserver.org'",
             "format": "idn-hostname"
         }
     }
