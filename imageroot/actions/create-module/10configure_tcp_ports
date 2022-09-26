@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+import agent
+import os
+# web uses the first one, archive uses the second random port
+env_tcp_ports = os.environ["TCP_PORTS"].split(',')
+tcp_port_web = env_tcp_ports[0]
+tcp_port_archive = env_tcp_ports[1]
+
+# Talk with agent using file descriptor.
+# Setup configuration from user input.
+agent.set_env("TCP_PORT_WEB", tcp_port_web )
+agent.set_env("TCP_PORT_ARCHIVE", tcp_port_archive)
+
+agent.dump_env()
