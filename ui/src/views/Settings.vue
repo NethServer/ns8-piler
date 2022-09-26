@@ -108,8 +108,7 @@
                   kind="primary"
                   :icon="Save20"
                   :loading="loading.configureModule"
-                  :disabled="loading.getConfiguration || loading.configureModule
-                  "
+                  :disabled="loading.getConfiguration || loading.configureModule"
                 >
                   {{ $t("settings.save") }}
                 </NsButton>
@@ -130,11 +129,12 @@ import {
   UtilService,
   TaskService,
   IconService,
+  PageTitleService,
 } from "@nethserver/ns8-ui-lib";
 
 export default {
   name: "Settings",
-  mixins: [TaskService, IconService, UtilService, QueryParamService],
+  mixins: [TaskService, IconService, UtilService, QueryParamService, PageTitleService],
   pageTitle() {
     return this.$t("settings.title") + " - " + this.appName;
   },
@@ -146,7 +146,6 @@ export default {
       urlCheckInterval: null,
       host: "",
       imap_host: "",
-      admin_password: "",
       isLetsEncryptEnabled: false,
       isHttpToHttpsEnabled: false,
       loading: {
@@ -158,7 +157,6 @@ export default {
         configureModule: "",
         host: "",
         imap_host: "",
-        admin_password: "",
         lets_encrypt: "",
         http2https: "",
         tcp_port_archive: "",
@@ -186,18 +184,17 @@ export default {
       this.loading.getConfiguration = true;
       this.error.getConfiguration = "";
       const taskAction = "get-configuration";
+      const eventId = this.getUuid();
 
       // register to task error
-      this.core.$root.$off(taskAction + "-aborted");
       this.core.$root.$once(
-        taskAction + "-aborted",
+        `${taskAction}-aborted-${eventId}`,
         this.getConfigurationAborted
       );
 
       // register to task completion
-      this.core.$root.$off(taskAction + "-completed");
       this.core.$root.$once(
-        taskAction + "-completed",
+        `${taskAction}-completed-${eventId}`,
         this.getConfigurationCompleted
       );
 
@@ -207,6 +204,7 @@ export default {
           extra: {
             title: this.$t("action." + taskAction),
             isNotificationHidden: true,
+            eventId,
           },
         })
       );
@@ -221,14 +219,13 @@ export default {
     },
     getConfigurationAborted(taskResult, taskContext) {
       console.error(`${taskContext.action} aborted`, taskResult);
-      this.error.getConfiguration = this.core.$t("error.generic_error");
+      this.error.getConfiguration = this.$t("error.generic_error");
       this.loading.getConfiguration = false;
     },
     getConfigurationCompleted(taskContext, taskResult) {
       const config = taskResult.output;
       this.host = config.host;
       this.imap_host = config.imap_host;
-      this.admin_password = config.admin_password;
       this.tcp_port_archive = config.tcp_port_archive;
       this.isLetsEncryptEnabled = config.lets_encrypt;
       this.isHttpToHttpsEnabled = config.http2https;
@@ -258,7 +255,7 @@ export default {
       for (const validationError of validationErrors) {
         const param = validationError.parameter;
         // set i18n error message
-        this.error[param] = "settings." + validationError.error;
+        this.error[param] = this.$t("settings." + validationError.error);
 
         if (!focusAlreadySet) {
           this.focusElement(param);
@@ -274,25 +271,23 @@ export default {
 
       this.loading.configureModule = true;
       const taskAction = "configure-module";
+      const eventId = this.getUuid();
 
       // register to task error
-      this.core.$root.$off(taskAction + "-aborted");
       this.core.$root.$once(
-        taskAction + "-aborted",
+        `${taskAction}-aborted-${eventId}`,
         this.configureModuleAborted
       );
 
       // register to task validation
-      this.core.$root.$off(taskAction + "-validation-failed");
       this.core.$root.$once(
-        taskAction + "-validation-failed",
+        `${taskAction}-validation-failed-${eventId}`,
         this.configureModuleValidationFailed
       );
 
       // register to task completion
-      this.core.$root.$off(taskAction + "-completed");
       this.core.$root.$once(
-        taskAction + "-completed",
+        `${taskAction}-completed-${eventId}`,
         this.configureModuleCompleted
       );
 
@@ -302,7 +297,6 @@ export default {
           data: {
             host: this.host,
             imap_host: this.imap_host,
-            admin_password: this.admin_password,
             lets_encrypt: this.isLetsEncryptEnabled,
             http2https: this.isHttpToHttpsEnabled,
           },
@@ -311,6 +305,7 @@ export default {
               instance: this.instanceName,
             }),
             description: this.$t("settings.configuring"),
+            eventId,
           },
         })
       );
@@ -325,12 +320,11 @@ export default {
     },
     configureModuleAborted(taskResult, taskContext) {
       console.error(`${taskContext.action} aborted`, taskResult);
-      this.error.configureModule = this.core.$t("error.generic_error");
+      this.error.configureModule = this.$t("error.generic_error");
       this.loading.configureModule = false;
     },
     configureModuleCompleted() {
       this.loading.configureModule = false;
-
       // reload configuration
       this.getConfiguration();
     },
