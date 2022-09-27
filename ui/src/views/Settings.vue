@@ -32,7 +32,6 @@
               ref="host"
             >
             </NsTextInput>
-            <template v-if="host">
               <NsTextInput
                 :label="$t('settings.tcp_port_archive')"
                 v-model.trim="tcp_port_archive"
@@ -47,13 +46,12 @@
                     v-html="
                       $t('settings.tcp_port_archive_tooltips', {
                         port: tcp_port_archive,
-                        host: host,
+                        host: host || 'domain.com',
                       })
                     "
                   ></div>
                 </template>
               </NsTextInput>
-            </template>
             <NsTextInput
               :label="$t('settings.imap_fqdn')"
               :placeholder="$t('settings.placeholder_imap_server')"
