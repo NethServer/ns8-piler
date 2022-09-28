@@ -32,26 +32,26 @@
               ref="host"
             >
             </NsTextInput>
-              <NsTextInput
-                :label="$t('settings.tcp_port_archive')"
-                v-model.trim="tcp_port_archive"
-                :invalid-message="$t(error.tcp_port_archive)"
-                disabled
-                ref="tcp_port_archive"
-                tooltipAlignment="center"
-                tooltipDirection="right"
-              >
-                <template slot="tooltip">
-                  <div
-                    v-html="
-                      $t('settings.tcp_port_archive_tooltips', {
-                        port: tcp_port_archive,
-                        host: host || 'domain.com',
-                      })
-                    "
-                  ></div>
-                </template>
-              </NsTextInput>
+            <NsTextInput
+              :label="$t('settings.tcp_port_archive')"
+              v-model.trim="tcp_port_archive"
+              :invalid-message="$t(error.tcp_port_archive)"
+              disabled
+              ref="tcp_port_archive"
+              tooltipAlignment="center"
+              tooltipDirection="right"
+            >
+              <template slot="tooltip">
+                <div
+                  v-html="
+                    $t('settings.tcp_port_archive_tooltips', {
+                      port: tcp_port_archive,
+                      host: host || 'domain.com',
+                    })
+                  "
+                ></div>
+              </template>
+            </NsTextInput>
             <NsTextInput
               :label="$t('settings.imap_fqdn')"
               :placeholder="$t('settings.placeholder_imap_server')"
@@ -132,7 +132,13 @@ import {
 
 export default {
   name: "Settings",
-  mixins: [TaskService, IconService, UtilService, QueryParamService, PageTitleService],
+  mixins: [
+    TaskService,
+    IconService,
+    UtilService,
+    QueryParamService,
+    PageTitleService,
+  ],
   pageTitle() {
     return this.$t("settings.title") + " - " + this.appName;
   },

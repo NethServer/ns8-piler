@@ -327,7 +327,7 @@ export default {
         getStatus: "",
         listBackupRepositories: "",
         listBackups: "",
-        getConfiguration: ""
+        getConfiguration: "",
       },
     };
   },
