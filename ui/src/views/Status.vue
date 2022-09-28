@@ -44,11 +44,37 @@
         <NsInfoCard
           light
           :title="status.instance || '-'"
-          :description="$t('status.app_instance')"
+          :description="
+            config && config.host ? config.host : $t('status.not_configured')
+          "
           :icon="Application32"
-          :loading="loading.getStatus"
+          :loading="loading.getConfiguration"
+          :isErrorShown="error.getConfiguration"
+          :errorTitle="$t('error.cannot_retrieve_configuration')"
+          :errorDescription="error.getConfiguration"
           class="min-height-card"
-        />
+        >
+          <template slot="content">
+            <NsButton
+              v-if="config && config.host"
+              kind="ghost"
+              :icon="Launch20"
+              :disabled="loading.getConfiguration"
+              @click="goToPiler"
+            >
+              {{ $t("status.open_piler_webapp") }}
+            </NsButton>
+            <NsButton
+              v-else
+              kind="ghost"
+              :disabled="loading.getConfiguration"
+              :icon="ArrowRight20"
+              @click="goToAppPage(instanceName, 'settings')"
+            >
+              {{ $t("status.configure") }}
+            </NsButton>
+          </template>
+        </NsInfoCard>
       </cv-column>
       <cv-column :md="4" :max="4">
         <NsInfoCard
@@ -282,6 +308,7 @@ export default {
       urlCheckInterval: null,
       isRedirectChecked: false,
       redirectTimeout: 0,
+      config: null,
       status: {
         instance: "",
         services: [],
@@ -294,11 +321,13 @@ export default {
         getStatus: false,
         listBackupRepositories: false,
         listBackups: false,
+        getConfiguration: true,
       },
       error: {
         getStatus: "",
         listBackupRepositories: "",
         listBackups: "",
+        getConfiguration: ""
       },
     };
   },
@@ -343,10 +372,60 @@ export default {
     clearTimeout(this.redirectTimeout);
   },
   created() {
+    this.getConfiguration();
     this.getStatus();
     this.listBackupRepositories();
   },
   methods: {
+    goToPiler() {
+      window.open(`https://${this.config.host}`, "_blank");
+    },
+    async getConfiguration() {
+      this.loading.getConfiguration = true;
+      this.error.getConfiguration = "";
+      const taskAction = "get-configuration";
+      const eventId = this.getUuid();
+
+      // register to task error
+      this.core.$root.$once(
+        `${taskAction}-aborted-${eventId}`,
+        this.getConfigurationAborted
+      );
+
+      // register to task completion
+      this.core.$root.$once(
+        `${taskAction}-completed-${eventId}`,
+        this.getConfigurationCompleted
+      );
+
+      const res = await to(
+        this.createModuleTaskForApp(this.instanceName, {
+          action: taskAction,
+          extra: {
+            title: this.$t("action." + taskAction),
+            isNotificationHidden: true,
+            eventId,
+          },
+        })
+      );
+      const err = res[0];
+
+      if (err) {
+        console.error(`error creating task ${taskAction}`, err);
+        this.error.getConfiguration = this.getErrorMessage(err);
+        this.loading.getConfiguration = false;
+        return;
+      }
+    },
+    getConfigurationAborted(taskResult, taskContext) {
+      console.error(`${taskContext.action} aborted`, taskResult);
+      this.error.getConfiguration = this.$t("error.generic_error");
+      this.loading.getConfiguration = false;
+    },
+    getConfigurationCompleted(taskContext, taskResult) {
+      this.config = taskResult.output;
+      this.loading.getConfiguration = false;
+    },
     async getStatus() {
       this.loading.getStatus = true;
       this.error.getStatus = "";
