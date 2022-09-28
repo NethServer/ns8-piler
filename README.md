@@ -55,7 +55,7 @@ api-cli run get-configuration --agent module/piler1 --data null | jq
   "imap_host": "imap.domain.com",
   "http2https": true,
   "lets_encrypt": false,
-  "tcp_port_archive": "20010"
+  "tcp_port_archive": "2525"
 }
 ```
 
@@ -76,22 +76,22 @@ The tests are made using [Robot Framework](https://robotframework.org/)
 
 ## send email to piler
 
-Piler is waiting email on a TCP port over 20 000, to send email to the archive system you need
+Piler is waiting email on a TCP port on 2525, to send email to the archive system you need
 
 - Bcc email of your domain to archive@piler.domain.com
 - adapt your email server to send email to piler.domain.com on the custom smtp port
 
 This can be done by adapting the `/etc/postfix/transport/`
 
-`piler.domain.com smtp:piler.domain.com:250010`
+`piler.domain.com smtp:piler.domain.com:2525`
 
 - postmap the configuration file (if needed) : `postmap /etc/postfix/transport`
 - restart postfix : `systemctl restart postfix`
 
 
-On NS7 you can set it by 
+On NS7 you can set it by
 
 ```
-db smarthosts set @piler.domain.com recipient Host piler.domain.com Password '' Port 20010 TlsStatus enabled Username '' status enabled
+db smarthosts set @piler.domain.com recipient Host piler.domain.com Password '' Port 2525 TlsStatus enabled Username '' status enabled
 signal-event nethserver-mail-smarthost-save
 ```

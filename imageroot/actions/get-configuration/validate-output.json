@@ -45,7 +45,7 @@
         "tcp_port_archive": {
             "title": "external SMTP port to listen email to archive@piler.domain.com",
             "type": "integer",
-            "minimum": 20000,
+            "minimum": 2525,
             "maximum": 65535
         }
     }

@@ -22,8 +22,8 @@ ExecStartPre=/bin/rm -f %t/piler.pid %t/piler.pod-id
 ExecStartPre=/usr/bin/podman pod create --infra-conmon-pidfile %t/piler.pid \
     --pod-id-file %t/piler.pod-id \
     --name piler \
-    --publish 127.0.0.1:${TCP_PORT_WEB}:80 \
-    --publish ${TCP_PORT_ARCHIVE}:25 \
+    --publish 127.0.0.1:${TCP_PORT}:80 \
+    --publish 2525:25 \
     --replace
 ExecStart=/usr/bin/podman pod start --pod-id-file %t/piler.pod-id
 ExecStop=/usr/bin/podman pod stop --ignore --pod-id-file %t/piler.pod-id -t 10
