@@ -43,11 +43,11 @@
       <cv-column :md="4" :max="4">
         <NsInfoCard
           light
-          :title="status.instance || '-'"
+          :title="$t('status.piler_webapp')"
           :description="
             config && config.host ? config.host : $t('status.not_configured')
           "
-          :icon="Application32"
+          :icon="Wikis32"
           :loading="loading.getConfiguration"
           :isErrorShown="error.getConfiguration"
           :errorTitle="$t('error.cannot_retrieve_configuration')"
@@ -75,6 +75,16 @@
             </NsButton>
           </template>
         </NsInfoCard>
+      </cv-column>
+      <cv-column :md="4" :max="4">
+        <NsInfoCard
+          light
+          :title="status.instance || '-'"
+          :description="$t('status.app_instance')"
+          :icon="Application32"
+          :loading="loading.getStatus"
+          class="min-height-card"
+        />
       </cv-column>
       <cv-column :md="4" :max="4">
         <NsInfoCard

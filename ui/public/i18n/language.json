@@ -21,7 +21,8 @@
     "no_volumes": "No volumes",
     "open_piler_webapp": "Open Piler",
     "not_configured": "Not configured",
-    "configure": "Configure"
+    "configure": "Configure",
+    "piler_webapp": "Piler webapp"
   },
   "settings": {
     "title": "Settings",
