@@ -4,8 +4,12 @@
 # Copyright (C) 2022 Nethesis S.r.l.
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
+set -e
 
-# If the control reaches this step, the service can be enabled and started
+# Redirect any output to the journal (stderr)
+exec 1>&2
+
+The service can be enabled and started
 
 systemctl --user enable piler.service
 systemctl --user restart piler.service

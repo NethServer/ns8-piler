@@ -23,15 +23,77 @@
       <cv-column>
         <cv-tile light>
           <cv-form @submit.prevent="configureModule">
-            <!-- TODO remove test field and code configuration fields -->
-            <cv-text-input
-              :label="$t('settings.test_filed')"
-              v-model="testField"
-              :placeholder="$t('settings.test_filed')"
+            <NsTextInput
+              :label="$t('settings.piler_fqdn')"
+              :placeholder="$t('settings.placeholder_piler_domain')"
+              v-model.trim="host"
+              :invalid-message="$t(error.host)"
               :disabled="loading.getConfiguration || loading.configureModule"
-              :invalid-message="error.testField"
-              ref="testField"
-            ></cv-text-input>
+              ref="host"
+            >
+            </NsTextInput>
+            <NsTextInput
+              :label="$t('settings.tcp_port_archive')"
+              v-model.trim="tcp_port_archive"
+              :invalid-message="$t(error.tcp_port_archive)"
+              disabled
+              ref="tcp_port_archive"
+              tooltipAlignment="center"
+              tooltipDirection="right"
+            >
+              <template slot="tooltip">
+                <div
+                  v-html="
+                    $t('settings.tcp_port_archive_tooltips', {
+                      port: tcp_port_archive,
+                      host: host || 'domain.com',
+                    })
+                  "
+                ></div>
+              </template>
+            </NsTextInput>
+            <NsTextInput
+              :label="$t('settings.imap_fqdn')"
+              :placeholder="$t('settings.placeholder_imap_server')"
+              v-model.trim="imap_host"
+              :invalid-message="$t(error.imap_host)"
+              :disabled="loading.getConfiguration || loading.configureModule"
+              ref="imap_host"
+              tooltipAlignment="center"
+              tooltipDirection="right"
+            >
+              <template slot="tooltip">
+                <div v-html="$t('settings.imap_fqdn_tooltips')"></div>
+              </template>
+            </NsTextInput>
+            <cv-toggle
+              value="letsEncrypt"
+              :label="$t('settings.lets_encrypt')"
+              v-model="isLetsEncryptEnabled"
+              :disabled="loading.getConfiguration || loading.configureModule"
+              class="mg-bottom"
+            >
+              <template slot="text-left">{{
+                $t("settings.disabled")
+              }}</template>
+              <template slot="text-right">{{
+                $t("settings.enabled")
+              }}</template>
+            </cv-toggle>
+            <cv-toggle
+              value="httpToHttps"
+              :label="$t('settings.http_to_https')"
+              v-model="isHttpToHttpsEnabled"
+              :disabled="loading.getConfiguration || loading.configureModule"
+              class="mg-bottom"
+            >
+              <template slot="text-left">{{
+                $t("settings.disabled")
+              }}</template>
+              <template slot="text-right">{{
+                $t("settings.enabled")
+              }}</template>
+            </cv-toggle>
             <cv-row v-if="error.configureModule">
               <cv-column>
                 <NsInlineNotification
@@ -47,8 +109,9 @@
               :icon="Save20"
               :loading="loading.configureModule"
               :disabled="loading.getConfiguration || loading.configureModule"
-              >{{ $t("settings.save") }}</NsButton
             >
+              {{ $t("settings.save") }}
+            </NsButton>
           </cv-form>
         </cv-tile>
       </cv-column>
@@ -85,7 +148,10 @@ export default {
         page: "settings",
       },
       urlCheckInterval: null,
-      testField: "", // TODO remove
+      host: "",
+      imap_host: "",
+      isLetsEncryptEnabled: false,
+      isHttpToHttpsEnabled: false,
       loading: {
         getConfiguration: false,
         configureModule: false,
@@ -93,12 +159,19 @@ export default {
       error: {
         getConfiguration: "",
         configureModule: "",
-        testField: "", // TODO remove
+        host: "",
+        imap_host: "",
+        lets_encrypt: "",
+        http2https: "",
+        tcp_port_archive: "",
       },
     };
   },
   computed: {
     ...mapState(["instanceName", "core", "appName"]),
+  },
+  created() {
+    this.getConfiguration();
   },
   beforeRouteEnter(to, from, next) {
     next((vm) => {
@@ -109,9 +182,6 @@ export default {
   beforeRouteLeave(to, from, next) {
     clearInterval(this.urlCheckInterval);
     next();
-  },
-  created() {
-    this.getConfiguration();
   },
   methods: {
     async getConfiguration() {
@@ -157,42 +227,44 @@ export default {
       this.loading.getConfiguration = false;
     },
     getConfigurationCompleted(taskContext, taskResult) {
-      this.loading.getConfiguration = false;
       const config = taskResult.output;
-
-      // TODO set configuration fields
-      // ...
-
-      // TODO remove
-      console.log("config", config);
-
-      // TODO focus first configuration field
-      this.focusElement("testField");
+      this.host = config.host;
+      this.imap_host = config.imap_host;
+      this.tcp_port_archive = config.tcp_port_archive;
+      this.isLetsEncryptEnabled = config.lets_encrypt;
+      this.isHttpToHttpsEnabled = config.http2https;
+      this.loading.getConfiguration = false;
+      this.focusElement("host");
     },
     validateConfigureModule() {
       this.clearErrors(this);
+
       let isValidationOk = true;
 
-      // TODO remove testField and validate configuration fields
-      if (!this.testField) {
-        // test field cannot be empty
-        this.error.testField = this.$t("common.required");
+      if (!this.host) {
+        this.error.host = "common.required";
 
         if (isValidationOk) {
-          this.focusElement("testField");
-          isValidationOk = false;
+          this.focusElement("host");
         }
+        isValidationOk = false;
       }
+
       return isValidationOk;
     },
     configureModuleValidationFailed(validationErrors) {
       this.loading.configureModule = false;
+      let focusAlreadySet = false;
 
       for (const validationError of validationErrors) {
         const param = validationError.parameter;
-
         // set i18n error message
         this.error[param] = this.$t("settings." + validationError.error);
+
+        if (!focusAlreadySet) {
+          this.focusElement(param);
+          focusAlreadySet = true;
+        }
       }
     },
     async configureModule() {
@@ -227,13 +299,16 @@ export default {
         this.createModuleTaskForApp(this.instanceName, {
           action: taskAction,
           data: {
-            // TODO configuration fields
+            host: this.host,
+            imap_host: this.imap_host,
+            lets_encrypt: this.isLetsEncryptEnabled,
+            http2https: this.isHttpToHttpsEnabled,
           },
           extra: {
-            title: this.$t("settings.configure_instance", {
+            title: this.$t("settings.instance_configuration", {
               instance: this.instanceName,
             }),
-            description: this.$t("common.processing"),
+            description: this.$t("settings.configuring"),
             eventId,
           },
         })
@@ -254,7 +329,6 @@ export default {
     },
     configureModuleCompleted() {
       this.loading.configureModule = false;
-
       // reload configuration
       this.getConfiguration();
     },
@@ -264,4 +338,7 @@ export default {
 
 <style scoped lang="scss">
 @import "../styles/carbon-utils";
+.mg-bottom {
+  margin-bottom: $spacing-06;
+}
 </style>

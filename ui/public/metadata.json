@@ -1,17 +1,17 @@
 {
-  "name": "piler",
+  "name": "Piler",
   "description": {
-    "en": "My piler module"
+    "en": "Piler is an email archive that keeps your messages in a central repository. Piler archives every email it receives."
   },
-  "categories": [],
+  "categories": ["collaboration"],
   "authors": [
     {
-      "name": "Name Surname",
-      "email": "author@yourmail.org"
+      "name": "Stephane de Labrusse",
+      "email": "stephdl@de-labrusse.fr"
     }
   ],
   "docs": {
-    "documentation_url": "https://docs.piler.com/",
+    "documentation_url": "https://mailpiler.com/documentation/",
     "bug_url": "https://github.com/NethServer/dev",
     "code_url": "https://github.com/author/ns8-piler"
   },

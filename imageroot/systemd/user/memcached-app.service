@@ -1,0 +1,31 @@
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+[Unit]
+Description=Podman memcached-app.service
+BindsTo=piler.service
+After=piler.service
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+EnvironmentFile=%S/state/environment
+Restart=always
+TimeoutStopSec=70
+ExecStartPre=/bin/rm -f %t/memcached-app.pid %t/memcached-app.ctr-id
+ExecStart=/usr/bin/podman run --conmon-pidfile %t/memcached-app.pid \
+    --cidfile %t/memcached-app.ctr-id --cgroups=no-conmon \
+    --pod-id-file %t/piler.pod-id --replace -d --name memcached-app \
+    --env-file=%S/state/environment \
+    ${MEMCACHED_IMAGE} \
+    memcached -m 64
+ExecStop=/usr/bin/podman stop --ignore --cidfile %t/memcached-app.ctr-id -t 10
+ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/memcached-app.ctr-id
+ExecReload=/usr/bin/podman kill -s HUP memcached-app
+SyslogIdentifier=%u
+PIDFile=%t/memcached-app.pid
+Type=forking
+
+[Install]
+WantedBy=default.target

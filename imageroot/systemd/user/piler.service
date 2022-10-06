@@ -7,25 +7,27 @@
 # This systemd unit starts a piler instance using Podman.
 # Most parts of this file come from podman-generate-systemd.
 #
+
 [Unit]
-Description=piler server
+Description=Podman piler.service
+Requires=mariadb-app.service piler-app.service memcached-app.service
+Before=mariadb-app.service piler-app.service memcached-app.service
 
 [Service]
 Environment=PODMAN_SYSTEMD_UNIT=%n
-EnvironmentFile=%S/state/environment
-WorkingDirectory=%S/state
+EnvironmentFile=-%S/state/environment
 Restart=always
-ExecStartPre=/bin/rm -f %t/piler.pid %t/piler.ctr-id
-ExecStart=/usr/bin/podman run \
-    --detach \
-    --conmon-pidfile=%t/piler.pid \
-    --cidfile=%t/piler.ctr-id \
-    --cgroups=no-conmon \
-    --replace --name=%N \
-    --publish=127.0.0.1:${TCP_PORT}:8080 \
-    ${ECHO_SERVER_IMAGE}
-ExecStop=/usr/bin/podman stop --ignore --cidfile %t/piler.ctr-id -t 10
-ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/piler.ctr-id
+TimeoutStopSec=70
+ExecStartPre=/bin/rm -f %t/piler.pid %t/piler.pod-id
+ExecStartPre=/usr/bin/podman pod create --infra-conmon-pidfile %t/piler.pid \
+    --pod-id-file %t/piler.pod-id \
+    --name piler \
+    --publish 127.0.0.1:${TCP_PORT}:80 \
+    --publish 2525:25 \
+    --replace
+ExecStart=/usr/bin/podman pod start --pod-id-file %t/piler.pod-id
+ExecStop=/usr/bin/podman pod stop --ignore --pod-id-file %t/piler.pod-id -t 10
+ExecStopPost=/usr/bin/podman pod rm --ignore -f --pod-id-file %t/piler.pod-id
 PIDFile=%t/piler.pid
 Type=forking
 

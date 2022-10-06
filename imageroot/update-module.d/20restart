@@ -5,7 +5,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-# If the control reaches this step, the service can be enabled and started
-
-systemctl --user enable piler.service
 systemctl --user restart piler.service

@@ -1,21 +1,8 @@
 # ns8-piler
 
-This is a template module for [NethServer 8](https://github.com/NethServer/ns8-core).
-To start a new module from it:
-
-1. Click on [Use this template](https://github.com/NethServer/ns8-piler/generate).
-   Name your repo with `ns8-` prefix (e.g. `ns8-mymodule`). 
-   Do not end your module name with a number, like ~~`ns8-baaad2`~~!
-
-1. An automated initialization workflow starts: wait for its completion.
-   You can follow the run inside the "Actions" tab, the workflow is named "Initial commit"
-
-1. You can now clone the repository
-
-1. Edit this `README.md` file, by replacing this section with your module
-   description
-
-1. Commit and push your local changes
+Start and configure a piler instance.
+- The module uses [piler Docker Image](https://hub.docker.com/r/sutoj/piler).
+- The code source and the link to raise issues to the project developer can be found at [bitbucket piler](https://bitbucket.org/jsuto/piler/)
 
 ## Install
 
@@ -33,22 +20,44 @@ Output example:
 Let's assume that the piler instance is named `piler1`.
 
 Launch `configure-module`, by setting the following parameters:
-- `<MODULE_PARAM1_NAME>`: <MODULE_PARAM1_DESCRIPTION>
-- `<MODULE_PARAM2_NAME>`: <MODULE_PARAM2_DESCRIPTION>
-- ...
+- `host`: a fully qualified domain name for the application
+- `http2https`: enable or disable HTTP to HTTPS redirection
+- `lets_encrypt`: enable or disable Let's Encrypt certificate
+- `imap_host`: set a hostname of an imap server to authenticate user from it
 
 Example:
 
-    api-cli run module/piler1/configure-module --data '{}'
+```
+ api-cli run configure-module --agent module/piler1 --data - <<EOF
+{
+      "host": "piler.domain.com",
+      "http2https": true,
+      "lets_encrypt": false,
+      "imap_host": "imap.domain.com"
+    }
+EOF
+```
 
 The above command will:
 - start and configure the piler instance
-- (describe configuration process)
-- ...
+- configure a virtual host for traefik to access the instance
 
-Send a test HTTP request to the piler backend service:
+## Get the configuration
+You can retrieve the configuration with
 
-    curl http://127.0.0.1/piler/
+```
+api-cli run get-configuration --agent module/piler1 --data null | jq
+```
+
+```
+{
+  "host": "piler.domain.com",
+  "imap_host": "imap.domain.com",
+  "http2https": true,
+  "lets_encrypt": false,
+  "tcp_port_archive": "2525"
+}
+```
 
 ## Uninstall
 
@@ -64,3 +73,25 @@ Test the module using the `test-module.sh` script:
     ./test-module.sh <NODE_ADDR> ghcr.io/nethserver/piler:latest
 
 The tests are made using [Robot Framework](https://robotframework.org/)
+
+## send email to piler
+
+Piler is waiting email on a TCP port on 2525, to send email to the archive system you need
+
+- Bcc email of your domain to archive@piler.domain.com
+- adapt your email server to send email to piler.domain.com on the custom smtp port
+
+This can be done by adapting the `/etc/postfix/transport/`
+
+`piler.domain.com smtp:piler.domain.com:2525`
+
+- postmap the configuration file (if needed) : `postmap /etc/postfix/transport`
+- restart postfix : `systemctl restart postfix`
+
+
+On NS7 you can set it by
+
+```
+db smarthosts set @piler.domain.com recipient Host piler.domain.com Password '' Port 2525 TlsStatus enabled Username '' status enabled
+signal-event nethserver-mail-smarthost-save
+```

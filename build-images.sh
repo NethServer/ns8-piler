@@ -32,10 +32,10 @@ buildah add "${container}" imageroot /imageroot
 buildah add "${container}" ui/dist /ui
 # Setup the entrypoint, ask to reserve one TCP port with the label and set a rootless container
 buildah config --entrypoint=/ \
-    --label="org.nethserver.authorizations=traefik@any:routeadm" \
+    --label="org.nethserver.authorizations=node:fwadm traefik@any:routeadm" \
     --label="org.nethserver.tcp-ports-demand=1" \
     --label="org.nethserver.rootfull=0" \
-    --label="org.nethserver.images=docker.io/jmalloc/echo-server:latest" \
+    --label="org.nethserver.images=docker.io/sutoj/piler:1.3.12 docker.io/mariadb:10.7.4 docker.io/memcached:1.6.17-alpine" \
     "${container}"
 # Commit the image
 buildah commit "${container}" "${repobase}/${reponame}"
@@ -43,17 +43,6 @@ buildah commit "${container}" "${repobase}/${reponame}"
 # Append the image URL to the images array
 images+=("${repobase}/${reponame}")
 
-#
-# NOTICE:
-#
-# It is possible to build and publish multiple images.
-#
-# 1. create another buildah container
-# 2. add things to it and commit it
-# 3. append the image url to the images array
-#
-
-#
 # Setup CI when pushing to Github. 
 # Warning! docker::// protocol expects lowercase letters (,,)
 if [[ -n "${CI}" ]]; then
