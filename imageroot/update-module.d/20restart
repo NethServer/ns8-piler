@@ -5,4 +5,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-systemctl --user restart piler.service
+systemctl --user try-restart piler.service
