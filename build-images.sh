@@ -25,7 +25,7 @@ if ! buildah containers --format "{{.ContainerName}}" | grep -q nodebuilder-pile
 fi
 
 echo "Build static UI files with node..."
-buildah run nodebuilder-piler sh -c "cd /usr/src/ui && yarn install && yarn build"
+buildah run --env="NODE_OPTIONS=--openssl-legacy-provider" nodebuilder-piler sh -c "cd /usr/src/ui && yarn install && yarn build"
 
 # Add imageroot directory to the container image
 buildah add "${container}" imageroot /imageroot
@@ -35,7 +35,7 @@ buildah config --entrypoint=/ \
     --label="org.nethserver.authorizations=node:fwadm traefik@any:routeadm" \
     --label="org.nethserver.tcp-ports-demand=1" \
     --label="org.nethserver.rootfull=0" \
-    --label="org.nethserver.images=docker.io/sutoj/piler:1.3.12 docker.io/mariadb:10.7.4 docker.io/memcached:1.6.17-alpine" \
+    --label="org.nethserver.images=docker.io/sutoj/piler:1.4.4 docker.io/mariadb:10.11.7 docker.io/memcached:1.6.26-alpine" \
     "${container}"
 # Commit the image
 buildah commit "${container}" "${repobase}/${reponame}"
