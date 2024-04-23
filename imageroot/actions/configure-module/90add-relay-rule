@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2022 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+import os
+import json
+import sys
+# agent is a NethServer library which provides function to communicate with the agent
+import agent
+
+# Try to parse the stdin as JSON.
+# If parsing fails, output everything to stderr
+data = json.load(sys.stdin)
+
+# Connect to redis
+rdb = agent.redis_connect()
+
+providers = agent.list_service_providers(rdb, 'imap', 'tcp', {
+    'module_uuid': data["mail_server"],
+})
+
+if providers:
+    mail_id = providers[0]["module_id"]
+    if not os.environ.get("MAIL_SERVER"):
+    # first configuration, we add the relay rule
+        response = agent.tasks.run(f"module/{mail_id}", action='add-relay-rule', data={
+                "rule_type": "piler",
+                "rule_subject": "archive@"+data["host"],
+                "host": data["host"],
+                "port":  int(os.environ['TCP_PORT_ARCHIVE']),
+                "mandatory_tls": False,
+                "username": "",
+                "password": "",
+                "enabled": True})
+        agent.assert_exp(response['exit_code'] == 0)
+        # we need to set bcc address for the mail server
+        response = agent.tasks.run(f"module/{mail_id}", action='set-bcc-piler', data={
+            "bcc_archive": "archive@"+data["host"]
+        })
+        agent.assert_exp(response['exit_code'] == 0)
+    elif os.environ.get("MAIL_SERVER") and data["mail_server"] != os.environ.get("MAIL_SERVER"):
+        # not the same mail server, we remove the old relay rule and add the new one
+        providers_old = agent.list_service_providers(rdb, 'imap', 'tcp', {
+            'module_uuid': os.environ.get("MAIL_SERVER")
+        })
+        if providers_old:
+            mail_id_old = providers_old[0]["module_id"]
+            response = agent.tasks.run(f"module/{mail_id_old}", action='remove-relay-rule', data={
+                "rule_subject": "archive@"+data["host"]})
+            agent.assert_exp(response['exit_code'] == 0)
+            # we need to remove bcc address for the mail server
+            response = agent.tasks.run(f"module/{mail_id_old}", action='set-bcc-piler', data={
+                "bcc_archive": ""
+            })
+            agent.assert_exp(response['exit_code'] == 0)
+        # add the new relay rule
+        response = agent.tasks.run(f"module/{mail_id}", action='add-relay-rule', data={
+                    "rule_type": "piler",
+                    "rule_subject": "archive@"+data["host"],
+                    "host": data["host"],
+                    "port":  int(os.environ['TCP_PORT_ARCHIVE']),
+                    "mandatory_tls": False,
+                    "username": "",
+                    "password": "",
+                    "enabled": True})
+        agent.assert_exp(response['exit_code'] == 0)
+        # we need to set bcc address for the mail server
+        response = agent.tasks.run(f"module/{mail_id}", action='set-bcc-piler', data={
+            "bcc_archive": "archive@"+data["host"]
+        })
+        agent.assert_exp(response['exit_code'] == 0)
+    else:
+        # same mail server, we just update the relay rule
+        response = agent.tasks.run(f"module/{mail_id}", action='alter-relay-rule', data={
+                "rule_type": "piler",
+                "rule_subject": "archive@"+data["host"],
+                "host": data["host"],
+                "port":  int(os.environ['TCP_PORT_ARCHIVE']),
+                "mandatory_tls": False,
+                "username": "",
+                "password": "",
+                "enabled": True})
+        agent.assert_exp(response['exit_code'] == 0)
+        # we need to set bcc address for the mail server
+        response = agent.tasks.run(f"module/{mail_id}", action='set-bcc-piler', data={
+            "bcc_archive": "archive@"+data["host"]
+        })
+        agent.assert_exp(response['exit_code'] == 0)
+
+agent.set_env("MAIL_SERVER", data["mail_server"])
