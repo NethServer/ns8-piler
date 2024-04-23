@@ -9,7 +9,7 @@ import agent
 import os
 
 agent.add_public_service(os.environ['MODULE_ID'], [
-    "2525/tcp", # external SMTP piler
+    os.environ['TCP_PORT_ARCHIVE']+"/tcp", # external SMTP piler
 ])
 
 # Ignore exit code
