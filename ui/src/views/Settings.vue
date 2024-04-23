@@ -32,40 +32,28 @@
               ref="host"
             >
             </NsTextInput>
-            <NsTextInput
-              :label="$t('settings.tcp_port_archive')"
-              v-model.trim="tcp_port_archive"
-              :invalid-message="$t(error.tcp_port_archive)"
-              disabled
-              ref="tcp_port_archive"
-              tooltipAlignment="center"
-              tooltipDirection="right"
-            >
-              <template slot="tooltip">
-                <div
-                  v-html="
-                    $t('settings.tcp_port_archive_tooltips', {
-                      port: tcp_port_archive,
-                      host: host || 'domain.com',
-                    })
-                  "
-                ></div>
-              </template>
-            </NsTextInput>
-            <NsTextInput
-              :label="$t('settings.imap_fqdn')"
-              :placeholder="$t('settings.placeholder_imap_server')"
-              v-model.trim="imap_host"
-              :invalid-message="$t(error.imap_host)"
+            <NsComboBox
+              v-model.trim="mail_server"
+              :autoFilter="true"
+              :autoHighlight="true"
+              :title="$t('settings.mail_server_fqdn')"
+              :label="$t('settings.choose_mail_server')"
+              :options="mail_server_URL"
+              :userInputLabel="core.$t('settings.choose_mail_server')"
+              :acceptUserInput="false"
+              :showItemType="true"
+              :invalid-message="$t(error.mail_server)"
               :disabled="loading.getConfiguration || loading.configureModule"
-              ref="imap_host"
-              tooltipAlignment="center"
-              tooltipDirection="right"
+              tooltipAlignment="start"
+              tooltipDirection="top"
+              ref="mail_server"
             >
               <template slot="tooltip">
-                <div v-html="$t('settings.imap_fqdn_tooltips')"></div>
+              {{
+                $t("settings.choose_the_mail_server_to_use")
+              }}
               </template>
-            </NsTextInput>
+            </NsComboBox>
             <cv-toggle
               value="letsEncrypt"
               :label="$t('settings.lets_encrypt')"
@@ -149,7 +137,8 @@ export default {
       },
       urlCheckInterval: null,
       host: "",
-      imap_host: "",
+      mail_server: "",
+      mail_server_URL: [],
       isLetsEncryptEnabled: false,
       isHttpToHttpsEnabled: false,
       loading: {
@@ -160,10 +149,9 @@ export default {
         getConfiguration: "",
         configureModule: "",
         host: "",
-        imap_host: "",
         lets_encrypt: "",
         http2https: "",
-        tcp_port_archive: "",
+        mail_server: "",
       },
     };
   },
@@ -229,10 +217,13 @@ export default {
     getConfigurationCompleted(taskContext, taskResult) {
       const config = taskResult.output;
       this.host = config.host;
-      this.imap_host = config.imap_host;
-      this.tcp_port_archive = config.tcp_port_archive;
       this.isLetsEncryptEnabled = config.lets_encrypt;
       this.isHttpToHttpsEnabled = config.http2https;
+      // force to reload mail_server value after dom update
+      this.$nextTick(() => {
+        this.mail_server = config.mail_server;
+      });
+      this.mail_server_URL = config.mail_server_URL;
       this.loading.getConfiguration = false;
       this.focusElement("host");
     },
@@ -249,7 +240,14 @@ export default {
         }
         isValidationOk = false;
       }
+      if (!this.mail_server) {
+        this.error.mail_server = "common.required";
 
+        if (isValidationOk) {
+          this.focusElement("mail_server");
+        }
+        isValidationOk = false;
+      }
       return isValidationOk;
     },
     configureModuleValidationFailed(validationErrors) {
@@ -300,7 +298,7 @@ export default {
           action: taskAction,
           data: {
             host: this.host,
-            imap_host: this.imap_host,
+            mail_server: this.mail_server,
             lets_encrypt: this.isLetsEncryptEnabled,
             http2https: this.isHttpToHttpsEnabled,
           },
