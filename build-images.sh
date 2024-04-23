@@ -32,8 +32,8 @@ buildah add "${container}" imageroot /imageroot
 buildah add "${container}" ui/dist /ui
 # Setup the entrypoint, ask to reserve one TCP port with the label and set a rootless container
 buildah config --entrypoint=/ \
-    --label="org.nethserver.authorizations=node:fwadm traefik@any:routeadm" \
-    --label="org.nethserver.tcp-ports-demand=1" \
+    --label="org.nethserver.authorizations=node:fwadm traefik@node:routeadm mail@any:mailadm" \
+    --label="org.nethserver.tcp-ports-demand=2" \
     --label="org.nethserver.rootfull=0" \
     --label="org.nethserver.images=docker.io/sutoj/piler:1.4.4 docker.io/mariadb:10.11.7 docker.io/memcached:1.6.26-alpine" \
     "${container}"
