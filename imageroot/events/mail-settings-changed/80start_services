@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2024 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+import json
+import sys
+import agent
+import os
+
+event = json.load(sys.stdin)
+
+if event['module_uuid'] == os.getenv('MAIL_SERVER', ''):
+   # Restart to apply changed settings
+   agent.run_helper("systemctl", "--user", "try-restart", "piler.service").check_returncode()
