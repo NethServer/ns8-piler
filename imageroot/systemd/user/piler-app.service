@@ -23,6 +23,7 @@ ExecStart=/usr/bin/podman run --conmon-pidfile %t/piler-app.pid \
     --volume %S/state/piler_etc/config-site.php:/etc/piler/config-site.php:Z \
     --volume %S/state/piler_etc/piler.conf:/etc/piler/piler.conf:Z \
     --volume piler_var:/var/piler:Z \
+    --image-volume=ignore \
     --env MYSQL_DATABASE=piler \
     --env MYSQL_USER=piler \
     --env MYSQL_PASSWORD=piler \
