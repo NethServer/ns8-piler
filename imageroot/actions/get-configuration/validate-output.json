@@ -17,8 +17,7 @@
         "host",
         "http2https",
         "lets_encrypt",
-        "imap_host",
-        "tcp_port_archive"
+        "mail_server"
     ],
     "properties": {
         "host": {
@@ -36,17 +35,10 @@
             "title": "HTTP to HTTPS redirection",
             "description": "Redirect all the HTTP requests to HTTPS"
         },
-        "imap_host": {
+        "mail_server": {
+            "description": "Mail server UUID",
             "type": "string",
-            "title":"IMAP hostname server",
-            "description": "Host name for the IMAP server (user authentication), like 'imap.nethserver.org'",
-            "format": "idn-hostname"
-        },
-        "tcp_port_archive": {
-            "title": "external SMTP port to listen email to archive@piler.domain.com",
-            "type": "integer",
-            "minimum": 2525,
-            "maximum": 65535
+            "title": "Mail server UUID"
         }
     }
 }

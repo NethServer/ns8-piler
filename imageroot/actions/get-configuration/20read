@@ -14,9 +14,22 @@ import agent
 config = {}
 
 config["host"] = os.environ.get("TRAEFIK_HOST",'')
-config["imap_host"] = os.environ.get("IMAP_HOST",'')
 config["http2https"] =  os.environ.get("TRAEFIK_HTTP2HTTPS","False") == "True"
 config["lets_encrypt"] =  os.environ.get("TRAEFIK_LETS_ENCRYPT","False") == "True"
-config["tcp_port_archive"] = 2525
+config["mail_server"] = os.getenv("MAIL_SERVER", "")
+
+rdb = agent.redis_connect() # full read-only access on every key
+modules=[]
+# we query about all mail server to use it inside the user interface
+for key in agent.list_service_providers(rdb,'imap','tcp'):
+    obj = {
+        "name": key['module_id'],
+        "label": key['module_id'] + ' ('+key['mail_hostname']+')',
+        "value": key['module_uuid'],
+    }
+    modules.append(obj)
+
+# use it inside a dropdown
+config['mail_server_URL'] = modules
 # Dump the configuratio to stdout
 json.dump(config, fp=sys.stdout)
