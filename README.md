@@ -23,7 +23,6 @@ Launch `configure-module`, by setting the following parameters:
 - `host`: a fully qualified domain name for the application
 - `http2https`: enable or disable HTTP to HTTPS redirection
 - `lets_encrypt`: enable or disable Let's Encrypt certificate
-- `imap_host`: set a hostname of an imap server to authenticate user from it
 
 Example:
 
@@ -33,7 +32,7 @@ Example:
       "host": "piler.domain.com",
       "http2https": true,
       "lets_encrypt": false,
-      "imap_host": "imap.domain.com"
+      "mail_server": "c990d0d0-6216-4651-9d0b-d393117d0f7e"
     }
 EOF
 ```
@@ -52,10 +51,10 @@ api-cli run get-configuration --agent module/piler1 --data null | jq
 ```
 {
   "host": "piler.domain.com",
-  "imap_host": "imap.domain.com",
   "http2https": true,
   "lets_encrypt": false,
-  "tcp_port_archive": "2525"
+  "mail_server": "c990d0d0-6216-4651-9d0b-d393117d0f7e",
+  "mail_server_URL": []
 }
 ```
 
@@ -76,22 +75,14 @@ The tests are made using [Robot Framework](https://robotframework.org/)
 
 ## send email to piler
 
-Piler is waiting email on a TCP port on 2525, to send email to the archive system you need
+Piler is waiting email on a TCP port on a random port(>20000/tcp), to send email to the archive system you need
 
 - Bcc email of your domain to archive@piler.domain.com
 - adapt your email server to send email to piler.domain.com on the custom smtp port
 
 This can be done by adapting the `/etc/postfix/transport/`
 
-`piler.domain.com smtp:piler.domain.com:2525`
+`piler.domain.com smtp:piler.domain.com:20001`
 
 - postmap the configuration file (if needed) : `postmap /etc/postfix/transport`
 - restart postfix : `systemctl restart postfix`
-
-
-On NS7 you can set it by
-
-```
-db smarthosts set @piler.domain.com recipient Host piler.domain.com Password '' Port 2525 TlsStatus enabled Username '' status enabled
-signal-event nethserver-mail-smarthost-save
-```
