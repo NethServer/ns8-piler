@@ -27,8 +27,6 @@
   "settings": {
     "title": "Settings",
     "piler_fqdn": "Piler FQDN",
-    "imap_fqdn": "IMAP server FQDN",
-    "imap_fqdn_tooltips":"The authentication to the archive user interface is done through an imap authentication",
     "save": "Save",
     "lets_encrypt": "Let's Encrypt certificate",
     "http_to_https": "HTTP to HTTPS",
@@ -38,9 +36,12 @@
     "configuring": "Configuring...",
     "domain_already_used_in_traefik": "This domain is already used in traefik",
     "placeholder_piler_domain": "Type a fully qualified domain name",
-    "placeholder_imap_server": "Type a fully qualified domain name",
-    "tcp_port_archive": "SMTP TCP port of the archive",
-    "tcp_port_archive_tooltips": "You must send for each domain an hidden copy (Bcc) of received emails to <b>archive@{host}</b> on the SMTP {port}/TCP."
+    "mail_server_fqdn": "Mail server",
+    "choose_mail_server": "Select a mail server",
+    "choose_the_mail_server_to_use": "The mail server will be configured to send emails to Piler",
+    "mail_server_is_not_valid": "This mail server cannot be used by Piler",
+    "host_pattern": "Must be a valid fully qualified domain name",
+    "host_format": "Must be a valid fully qualified domain name"
   },
   "about": {
     "title": "About"
