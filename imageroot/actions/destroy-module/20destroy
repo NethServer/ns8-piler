@@ -31,5 +31,16 @@ response = agent.tasks.run(
     },
 )
 
-# Check if traefik configuration has been successfull
-agent.assert_exp(response['exit_code'] == 0)
+# we want to remove the relay from the mail server
+rdb = agent.redis_connect()
+providers_old = agent.list_service_providers(rdb, 'imap', 'tcp', {
+    'module_uuid': os.environ.get("MAIL_SERVER")
+})
+if providers_old:
+    mail_id_old = providers_old[0]["module_id"]
+    response = agent.tasks.run(f"module/{mail_id_old}", action='remove-relay-rule', data={
+        "rule_subject": "archive@"+os.environ.get("TRAEFIK_HOST")})
+    # we need to set bcc address for the mail server
+    response = agent.tasks.run(f"module/{mail_id_old}", action='set-bcc-piler', data={
+        "bcc_archive": ""
+    })
