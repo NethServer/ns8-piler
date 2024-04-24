@@ -30,7 +30,7 @@ if providers:
     if not os.environ.get("MAIL_SERVER"):
     # first configuration, we add the relay rule
         response = agent.tasks.run(f"module/{mail_id}", action='add-relay-rule', data={
-                "rule_type": "piler",
+                "rule_type": "always-bcc",
                 "rule_subject": "archive@"+data["host"],
                 "host": ip_address,
                 "port":  int(os.environ['TCP_PORT_ARCHIVE']),
@@ -40,7 +40,7 @@ if providers:
                 "enabled": True})
         agent.assert_exp(response['exit_code'] == 0)
         # we need to set bcc address for the mail server
-        response = agent.tasks.run(f"module/{mail_id}", action='set-bcc-piler', data={
+        response = agent.tasks.run(f"module/{mail_id}", action='set-always-bcc', data={
             "bcc_archive": "archive@"+data["host"]
         })
         agent.assert_exp(response['exit_code'] == 0)
@@ -55,13 +55,13 @@ if providers:
                 "rule_subject": "archive@"+data["host"]})
             agent.assert_exp(response['exit_code'] == 0)
             # we need to remove bcc address for the mail server
-            response = agent.tasks.run(f"module/{mail_id_old}", action='set-bcc-piler', data={
+            response = agent.tasks.run(f"module/{mail_id_old}", action='set-always-bcc', data={
                 "bcc_archive": ""
             })
             agent.assert_exp(response['exit_code'] == 0)
         # add the new relay rule
         response = agent.tasks.run(f"module/{mail_id}", action='add-relay-rule', data={
-                    "rule_type": "piler",
+                    "rule_type": "always-bcc",
                     "rule_subject": "archive@"+data["host"],
                     "host": ip_address,
                     "port":  int(os.environ['TCP_PORT_ARCHIVE']),
@@ -71,14 +71,14 @@ if providers:
                     "enabled": True})
         agent.assert_exp(response['exit_code'] == 0)
         # we need to set bcc address for the mail server
-        response = agent.tasks.run(f"module/{mail_id}", action='set-bcc-piler', data={
+        response = agent.tasks.run(f"module/{mail_id}", action='set-always-bcc', data={
             "bcc_archive": "archive@"+data["host"]
         })
         agent.assert_exp(response['exit_code'] == 0)
     else:
         # same mail server, we just update the relay rule
         response = agent.tasks.run(f"module/{mail_id}", action='alter-relay-rule', data={
-                "rule_type": "piler",
+                "rule_type": "always-bcc",
                 "rule_subject": "archive@"+data["host"],
                 "host": ip_address,
                 "port":  int(os.environ['TCP_PORT_ARCHIVE']),
@@ -88,7 +88,7 @@ if providers:
                 "enabled": True})
         agent.assert_exp(response['exit_code'] == 0)
         # we need to set bcc address for the mail server
-        response = agent.tasks.run(f"module/{mail_id}", action='set-bcc-piler', data={
+        response = agent.tasks.run(f"module/{mail_id}", action='set-always-bcc', data={
             "bcc_archive": "archive@"+data["host"]
         })
         agent.assert_exp(response['exit_code'] == 0)
