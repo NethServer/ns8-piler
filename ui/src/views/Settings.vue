@@ -49,28 +49,6 @@
               ref="host"
             >
             </NsTextInput>
-            <NsComboBox
-              v-model.trim="mail_server"
-              :autoFilter="true"
-              :autoHighlight="true"
-              :title="$t('settings.mail_server_fqdn')"
-              :label="$t('settings.choose_mail_server')"
-              :options="mail_server_URL"
-              :userInputLabel="core.$t('settings.choose_mail_server')"
-              :acceptUserInput="false"
-              :showItemType="true"
-              :invalid-message="$t(error.mail_server)"
-              :disabled="loading.getConfiguration || loading.configureModule"
-              tooltipAlignment="start"
-              tooltipDirection="top"
-              ref="mail_server"
-            >
-              <template slot="tooltip">
-              {{
-                $t("settings.choose_the_mail_server_to_use")
-              }}
-              </template>
-            </NsComboBox>
             <cv-toggle
               value="letsEncrypt"
               :label="$t('settings.lets_encrypt')"
@@ -99,6 +77,28 @@
                 $t("settings.enabled")
               }}</template>
             </cv-toggle>
+            <NsComboBox
+              v-model.trim="mail_server"
+              :autoFilter="true"
+              :autoHighlight="true"
+              :title="$t('settings.mail_server_fqdn')"
+              :label="$t('settings.choose_mail_server')"
+              :options="mail_server_URL"
+              :userInputLabel="core.$t('settings.choose_mail_server')"
+              :acceptUserInput="false"
+              :showItemType="true"
+              :invalid-message="$t(error.mail_server)"
+              :disabled="loading.getConfiguration || loading.configureModule"
+              tooltipAlignment="start"
+              tooltipDirection="top"
+              ref="mail_server"
+            >
+              <template slot="tooltip">
+              {{
+                $t("settings.choose_the_mail_server_to_use")
+              }}
+              </template>
+            </NsComboBox>
             <cv-row v-if="error.configureModule">
               <cv-column>
                 <NsInlineNotification
