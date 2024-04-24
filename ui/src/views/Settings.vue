@@ -19,6 +19,16 @@
         />
       </cv-column>
     </cv-row>
+    <cv-row v-if="is_default_password">
+      <cv-column>
+        <NsInlineNotification
+          kind="warning"
+          :title="$t('settings.password_warning')"
+          :description="$t('settings.password_warning_description')"
+          :showCloseButton="false"
+        />
+      </cv-column>
+    </cv-row>
     <cv-row>
       <cv-column>
         <cv-tile light>
@@ -139,6 +149,7 @@ export default {
       host: "",
       mail_server: "",
       mail_server_URL: [],
+      is_default_password: false,
       isLetsEncryptEnabled: false,
       isHttpToHttpsEnabled: false,
       loading: {
@@ -224,6 +235,7 @@ export default {
         this.mail_server = config.mail_server;
       });
       this.mail_server_URL = config.mail_server_URL;
+      this.is_default_password = config.is_default_password;
       this.loading.getConfiguration = false;
       this.focusElement("host");
     },

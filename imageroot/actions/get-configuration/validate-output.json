@@ -8,8 +8,8 @@
             "host": "piler.nethserver.org",
             "http2https": true,
             "lets_encrypt": true,
-            "imap_host": "imap.nethserver.org",
-            "tcp_port_archive": 20010
+            "mail_server": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+            "is_default_password": false
         }
     ],
     "type": "object",
@@ -17,7 +17,8 @@
         "host",
         "http2https",
         "lets_encrypt",
-        "mail_server"
+        "mail_server",
+        "is_default_password"
     ],
     "properties": {
         "host": {
@@ -39,6 +40,11 @@
             "description": "Mail server UUID",
             "type": "string",
             "title": "Mail server UUID"
+        },
+        "is_default_password": {
+            "type": "boolean",
+            "title": "Default password",
+            "description": "True if the password is the default one"
         }
     }
 }

@@ -41,7 +41,9 @@
     "choose_the_mail_server_to_use": "The mail server will be configured to send emails to Piler",
     "mail_server_is_not_valid": "This mail server cannot be used by Piler",
     "host_pattern": "Must be a valid fully qualified domain name",
-    "host_format": "Must be a valid fully qualified domain name"
+    "host_format": "Must be a valid fully qualified domain name",
+    "password_warning": "The passwords are the default ones",
+    "password_warning_description": "Please change the password in the Piler webapp for admin@local(pilerrocks) and auditor@local(auditor)"
   },
   "about": {
     "title": "About"

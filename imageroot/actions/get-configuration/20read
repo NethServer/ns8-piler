@@ -9,6 +9,7 @@ import os
 import json
 import sys
 import agent
+import subprocess
 
 # Prepare return variable
 config = {}
@@ -31,5 +32,16 @@ for key in agent.list_service_providers(rdb,'imap','tcp'):
 
 # use it inside a dropdown
 config['mail_server_URL'] = modules
+
+command = "/usr/bin/podman exec mariadb-app mysql -u root -D piler -e 'SELECT password FROM user WHERE uid=0;'"
+output = subprocess.run(command, shell=True, capture_output=True, text=True)
+is_found_admin = '$1$PItc7d$zsUgON3JRrbdGS11t9JQW1' in output.stdout
+
+command = "/usr/bin/podman exec mariadb-app mysql -u root -D piler -e 'SELECT password FROM user WHERE uid=1;'"
+output = subprocess.run(command, shell=True, capture_output=True, text=True)
+is_found_auditor = "$1$SLIIIS$JMBwGqQg4lIir2P2YU1y.0" in output.stdout
+
+config['is_default_password'] = True if is_found_admin or is_found_auditor else False
+
 # Dump the configuratio to stdout
 json.dump(config, fp=sys.stdout)
