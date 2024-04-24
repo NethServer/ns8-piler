@@ -32,6 +32,13 @@
     <cv-row>
       <cv-column>
         <cv-tile light>
+          <cv-skeleton-text
+            v-show="loading.getConfiguration"
+            heading
+            paragraph
+            :line-count="10"
+            width="80%"
+          ></cv-skeleton-text>
           <cv-form @submit.prevent="configureModule">
             <NsTextInput
               :label="$t('settings.piler_fqdn')"
