@@ -42,5 +42,5 @@ if providers_old:
         "rule_subject": "archive@"+os.environ.get("TRAEFIK_HOST")})
     # we need to set bcc address for the mail server
     response = agent.tasks.run(f"module/{mail_id_old}", action='set-always-bcc', data={
-        "bcc_archive": ""
+        "bcc": ""
     })
