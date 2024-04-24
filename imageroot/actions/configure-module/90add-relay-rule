@@ -22,6 +22,9 @@ providers = agent.list_service_providers(rdb, 'imap', 'tcp', {
     'module_uuid': data["mail_server"],
 })
 
+node_id = os.environ["NODE_ID"]
+ip_address = rdb.hget(f'node/{node_id}/vpn', 'ip_address')
+
 if providers:
     mail_id = providers[0]["module_id"]
     if not os.environ.get("MAIL_SERVER"):
@@ -29,7 +32,7 @@ if providers:
         response = agent.tasks.run(f"module/{mail_id}", action='add-relay-rule', data={
                 "rule_type": "piler",
                 "rule_subject": "archive@"+data["host"],
-                "host": data["host"],
+                "host": ip_address,
                 "port":  int(os.environ['TCP_PORT_ARCHIVE']),
                 "mandatory_tls": False,
                 "username": "",
@@ -60,7 +63,7 @@ if providers:
         response = agent.tasks.run(f"module/{mail_id}", action='add-relay-rule', data={
                     "rule_type": "piler",
                     "rule_subject": "archive@"+data["host"],
-                    "host": data["host"],
+                    "host": ip_address,
                     "port":  int(os.environ['TCP_PORT_ARCHIVE']),
                     "mandatory_tls": False,
                     "username": "",
@@ -77,7 +80,7 @@ if providers:
         response = agent.tasks.run(f"module/{mail_id}", action='alter-relay-rule', data={
                 "rule_type": "piler",
                 "rule_subject": "archive@"+data["host"],
-                "host": data["host"],
+                "host": ip_address,
                 "port":  int(os.environ['TCP_PORT_ARCHIVE']),
                 "mandatory_tls": False,
                 "username": "",
