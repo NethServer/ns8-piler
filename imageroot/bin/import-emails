@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+
+#
+# Copyright (C) 2024 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+import subprocess
+import sys
+import os
+import agent
+
+
+rdb = agent.redis_connect()
+
+providers = agent.list_service_providers(rdb, 'imap', 'tcp', {
+    'module_uuid': os.environ['MAIL_SERVER'],
+})
+
+if providers:
+    mail_id = providers[0]["module_id"]
+    ip_address = providers[0]["host"]
+
+    # retrieve the list of users
+    response = agent.tasks.run(f"module/{mail_id}", action='list-user-mailboxes')
+    agent.assert_exp(response['exit_code'] == 0)
+
+    # Extract user names into a list
+    user_list = [user_data["user"] for user_data in response['output'].get("user_mailboxes")]
+
+    # retrieve the vmail password
+    response = agent.tasks.run(f"module/{mail_id}", action='reveal-master-credentials')
+    agent.assert_exp(response['exit_code'] == 0)
+    password = response['output']['password']
+
+    for user in user_list:
+        try:
+            print(f"### Importing {user} to {os.environ['MODULE_ID']}", file=sys.stderr)
+
+            subprocess.run([
+                '/usr/bin/podman', 'exec', 'piler-app', '/bin/bash', '-c',
+                f"su - piler;cd /var/piler/imap;/usr/bin/pilerimport -i {ip_address}  -u {user}*vmail -p  {password}  -P 993"
+            ])
+        except Exception as e:
+            print(f"### Error to import {user} to {os.environ['MODULE_ID']}: {e}", file=sys.stderr)
+            continue
