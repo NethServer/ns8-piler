@@ -115,7 +115,11 @@
                     <cv-column>
                       <cv-row>
                         <cv-column class="label mg-bottom-md">
-                          <span>{{ $t("settings.import_old_emails_to_piler_description") }}</span>
+                          <span>{{
+                            $t(
+                              "settings.import_old_emails_to_piler_description"
+                            )
+                          }}</span>
                         </cv-column>
                       </cv-row>
                       <NsButton
@@ -124,7 +128,9 @@
                         class="mg-bottom-md"
                         :icon="Play20"
                         :disabled="
-                          loading.getConfiguration || import_email_is_running
+                          loading.getConfiguration ||
+                          import_email_is_running ||
+                          loading.configureModule
                         "
                         @click="importEmailToPiler"
                       >
