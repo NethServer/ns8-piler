@@ -49,7 +49,7 @@
             :line-count="10"
             width="80%"
           ></cv-skeleton-text>
-          <cv-form @submit.prevent="configureModule">
+          <cv-form v-show="!loading.getConfiguration" @submit.prevent="configureModule">
             <NsTextInput
               :label="$t('settings.piler_fqdn')"
               :placeholder="$t('settings.placeholder_piler_domain')"
