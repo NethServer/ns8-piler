@@ -9,7 +9,9 @@
             "http2https": true,
             "lets_encrypt": true,
             "mail_server": "xxxxxxxxxxxxxxxxxxxxxxxxx",
-            "is_default_password": false
+            "is_default_password": false,
+            "import_email_is_running": false,
+            "piler_is_running": true
         }
     ],
     "type": "object",
@@ -18,7 +20,9 @@
         "http2https",
         "lets_encrypt",
         "mail_server",
-        "is_default_password"
+        "is_default_password",
+        "import_email_is_running",
+        "piler_is_running"
     ],
     "properties": {
         "host": {
@@ -45,6 +49,16 @@
             "type": "boolean",
             "title": "Default password",
             "description": "True if the password is the default one"
+        },
+        "import_email_is_running": {
+            "type": "boolean",
+            "title": "Import email is running",
+            "description": "True if the import email is running"
+        },
+        "piler_is_running": {
+            "type": "boolean",
+            "title": "Piler is running",
+            "description": "True if the piler is running"
         }
     }
 }

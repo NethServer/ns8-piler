@@ -43,5 +43,11 @@ is_found_auditor = "$1$SLIIIS$JMBwGqQg4lIir2P2YU1y.0" in output.stdout
 
 config['is_default_password'] = True if is_found_admin or is_found_auditor else False
 
+import_running = subprocess.run(['systemctl', '--user', 'is-active', "import-email-to-piler.service"], capture_output=True, text=True)
+config['import_email_is_running'] = True if import_running.stdout.strip() == 'active' else False
+
+piler_running = subprocess.run(['systemctl', '--user', 'is-active', "piler-app.service"], capture_output=True, text=True)
+config['piler_is_running'] = True if piler_running.stdout.strip() == 'active' else False
+
 # Dump the configuratio to stdout
 json.dump(config, fp=sys.stdout)

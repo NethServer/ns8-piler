@@ -1,0 +1,10 @@
+#
+# Copyright (C) 2024 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+[Unit]
+Description= import emails to piler
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/runagent import-emails

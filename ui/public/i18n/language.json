@@ -43,7 +43,12 @@
     "host_pattern": "Must be a valid fully qualified domain name",
     "host_format": "Must be a valid fully qualified domain name",
     "password_warning": "The passwords are the default ones",
-    "password_warning_description": "Please change the password in the Piler webapp for admin@local(pilerrocks) and auditor@local(auditor)"
+    "password_warning_description": "Please change the password in the Piler webapp for admin@local(pilerrocks) and auditor@local(auditor)",
+    "import_email_is_running_warning": "Import emails is running",
+    "import_email_is_running_description": "Please wait until the import emails action is finished",
+    "import_email_to_piler": "Import emails to Piler",
+    "advanced": "Advanced",
+    "import_old_emails_to_piler_description": "Import old emails to Piler, this process may take a long time"
   },
   "about": {
     "title": "About"
@@ -59,7 +64,8 @@
     "get-name": "Get name",
     "list-backup-repositories": "List backup repositories",
     "list-backups": "List backups",
-    "list-installed-modules": "List installed modules"
+    "list-installed-modules": "List installed modules",
+    "importEmailToPiler": "Import emails to Piler"
   },
   "error": {
     "error": "Error",
