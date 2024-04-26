@@ -107,41 +107,6 @@
                 {{ $t("settings.choose_the_mail_server_to_use") }}
               </template>
             </NsComboBox>
-            <cv-accordion ref="accordion" class="maxwidth mg-bottom">
-              <cv-accordion-item :open="toggleAccordion[0]">
-                <template slot="title">{{ $t("settings.advanced") }}</template>
-                <template slot="content">
-                  <cv-row>
-                    <cv-column>
-                      <cv-row>
-                        <cv-column class="label mg-bottom-md">
-                          <span>{{
-                            $t(
-                              "settings.import_old_emails_to_piler_description"
-                            )
-                          }}</span>
-                        </cv-column>
-                      </cv-row>
-                      <NsButton
-                        v-if="piler_is_running"
-                        kind="secondary"
-                        class="mg-bottom-md"
-                        :icon="Play20"
-                        :disabled="
-                          loading.getConfiguration ||
-                          import_email_is_running ||
-                          loading.configureModule
-                        "
-                        @click="importEmailToPiler"
-                      >
-                        {{ $t("settings.import_email_to_piler") }}
-                      </NsButton>
-                    </cv-column>
-                  </cv-row></template
-                >
-              </cv-accordion-item>
-            </cv-accordion>
-
             <cv-row v-if="error.importEmailToPiler">
               <cv-column>
                 <NsInlineNotification
@@ -212,7 +177,6 @@ export default {
       mail_server: "",
       mail_server_URL: [],
       import_email_is_running: false,
-      piler_is_running: false,
       is_default_password: false,
       isLetsEncryptEnabled: false,
       isHttpToHttpsEnabled: false,
@@ -249,51 +213,6 @@ export default {
     next();
   },
   methods: {
-    async importEmailToPiler() {
-      this.loading.getConfiguration = true;
-      this.error.getConfiguration = "";
-      const taskAction = "import-email-to-piler";
-      const eventId = this.getUuid();
-
-      // register to task error
-      this.core.$root.$once(
-        `${taskAction}-aborted-${eventId}`,
-        this.importEmailToPilerAborted
-      );
-
-      // register to task completion
-      this.core.$root.$once(
-        `${taskAction}-completed-${eventId}`,
-        this.importEmailToPilerCompleted
-      );
-
-      const res = await to(
-        this.createModuleTaskForApp(this.instanceName, {
-          action: taskAction,
-          extra: {
-            title: this.$t("action." + taskAction),
-            isNotificationHidden: true,
-            eventId,
-          },
-        })
-      );
-      const err = res[0];
-
-      if (err) {
-        console.error(`error creating task ${taskAction}`, err);
-        this.errorimportEmailToPiler = this.getErrorMessage(err);
-        this.loading.importEmailToPiler = false;
-        return;
-      }
-    },
-    importEmailToPilerAborted(taskResult, taskContext) {
-      console.error(`${taskContext.action} aborted`, taskResult);
-      this.error.importEmailToPiler = this.$t("error.generic_error");
-      this.loading.importEmailToPiler = false;
-    },
-    importEmailToPilerCompleted() {
-      this.getConfiguration();
-    },
     async getConfiguration() {
       this.loading.getConfiguration = true;
       this.error.getConfiguration = "";
@@ -348,7 +267,6 @@ export default {
       this.mail_server_URL = config.mail_server_URL;
       this.is_default_password = config.is_default_password;
       this.import_email_is_running = config.import_email_is_running;
-      this.piler_is_running = config.piler_is_running;
       this.loading.getConfiguration = false;
       this.focusElement("host");
     },

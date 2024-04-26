@@ -6,5 +6,5 @@
 Description= import emails to piler
 
 [Service]
-Type=simple
 ExecStart=/usr/local/bin/runagent import-emails
+Type=simple

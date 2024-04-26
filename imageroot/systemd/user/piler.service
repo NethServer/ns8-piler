@@ -12,7 +12,6 @@
 Description=Podman piler.service
 Requires=mariadb-app.service piler-app.service memcached-app.service
 Before=mariadb-app.service piler-app.service memcached-app.service
-
 [Service]
 Environment=PODMAN_SYSTEMD_UNIT=%n
 EnvironmentFile=-%S/state/environment

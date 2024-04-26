@@ -10,8 +10,7 @@
             "lets_encrypt": true,
             "mail_server": "xxxxxxxxxxxxxxxxxxxxxxxxx",
             "is_default_password": false,
-            "import_email_is_running": false,
-            "piler_is_running": true
+            "import_email_is_running": false
         }
     ],
     "type": "object",
@@ -21,8 +20,7 @@
         "lets_encrypt",
         "mail_server",
         "is_default_password",
-        "import_email_is_running",
-        "piler_is_running"
+        "import_email_is_running"
     ],
     "properties": {
         "host": {
@@ -54,11 +52,6 @@
             "type": "boolean",
             "title": "Import email is running",
             "description": "True if the import email is running"
-        },
-        "piler_is_running": {
-            "type": "boolean",
-            "title": "Piler is running",
-            "description": "True if the piler is running"
         }
     }
 }

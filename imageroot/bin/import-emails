@@ -44,3 +44,7 @@ if providers:
         except Exception as e:
             print(f"### Error to import {user} to {os.environ['MODULE_ID']}: {e}", file=sys.stderr)
             continue
+
+# write file to avoid re-importing: sync2pilerdone
+with open('sync2pilerdone', 'w') as f:
+    f.write('done')

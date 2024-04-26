@@ -19,3 +19,4 @@ for ((i = 0; i < 60; i++)); do
     echo "Waiting for piler-app to be active..."
     sleep 1
 done
+
