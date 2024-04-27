@@ -29,6 +29,16 @@
         />
       </cv-column>
     </cv-row>
+    <cv-row v-if="piler_is_running && ! always_bcc_correctly_set">
+      <cv-column>
+        <NsInlineNotification
+          kind="warning"
+          :title="$t('settings.always_bcc_not_set_warning')"
+          :description="$t('settings.always_bcc_not_set_description')"
+          :showCloseButton="false"
+        />
+      </cv-column>
+    </cv-row>
     <cv-row v-if="import_email_is_running">
       <cv-column>
         <NsInlineNotification
@@ -177,6 +187,8 @@ export default {
       mail_server: "",
       mail_server_URL: [],
       import_email_is_running: false,
+      piler_is_running: false,
+      always_bcc_correctly_set: false,
       is_default_password: false,
       isLetsEncryptEnabled: false,
       isHttpToHttpsEnabled: false,
@@ -267,6 +279,8 @@ export default {
       this.mail_server_URL = config.mail_server_URL;
       this.is_default_password = config.is_default_password;
       this.import_email_is_running = config.import_email_is_running;
+      this.piler_is_running = config.piler_is_running;
+      this.always_bcc_correctly_set = config.always_bcc_correctly_set;
       this.loading.getConfiguration = false;
       this.focusElement("host");
     },
