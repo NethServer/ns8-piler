@@ -86,3 +86,12 @@ This can be done by adapting the `/etc/postfix/transport/`
 
 - postmap the configuration file (if needed) : `postmap /etc/postfix/transport`
 - restart postfix : `systemctl restart postfix`
+
+## Import emails to piler
+
+Previous emails are sent automatically one time to piler after the first configuration, but if you want to launch manually the synchronisation, you can trigger this service in the terminal:
+
+    runagent -m piler1
+    systemctl --user start import-email-to-piler.service
+
+Piler should understand and manage about duplicated emails.
