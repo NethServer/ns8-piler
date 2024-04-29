@@ -38,8 +38,8 @@ if providers:
             print(f"### Importing {user} to {os.environ['MODULE_ID']}", file=sys.stderr)
 
             subprocess.run([
-                '/usr/bin/podman', 'exec', 'piler-app', '/bin/bash', '-c',
-                f"su - piler;cd /var/piler/imap;/usr/bin/pilerimport -i {ip_address}  -u {user}*vmail -p  {password}  -P 993"
+                '/usr/bin/podman', 'exec', '-w', '/var/piler/imap', '-u', 'piler', 'piler-app',
+                '/usr/bin/pilerimport', '-i',  ip_address, '-u',  f'{user}*vmail', '-p', password, '-P', '993'
             ])
         except Exception as e:
             print(f"### Error to import {user} to {os.environ['MODULE_ID']}: {e}", file=sys.stderr)
