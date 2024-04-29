@@ -7,4 +7,5 @@ Description= import emails to piler
 
 [Service]
 ExecStart=/usr/local/bin/runagent import-emails
+ExectStartPost=/usr/bin/touch sync2pilerdone
 Type=simple
