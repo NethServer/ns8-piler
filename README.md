@@ -92,6 +92,6 @@ This can be done by adapting the `/etc/postfix/transport/`
 Previous emails are sent automatically one time to piler after the first configuration, but if you want to launch manually the synchronisation, you can trigger this service in the terminal:
 
     runagent -m piler1
-    systemctl --user start import-email-to-piler.service
+    systemctl --user start --no-block import-email-to-piler.service
 
 Piler should understand and manage about duplicated emails.

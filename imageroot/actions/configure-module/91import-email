@@ -10,4 +10,4 @@ if [[ -f 'sync2pilerdone' ]]; then
     echo "## sync2pilerdone file is found, mail already migrated, exiting"
     exit 0
 fi
-systemctl --user start import-email-to-piler.service
+systemctl --user start --no-block import-email-to-piler.service
