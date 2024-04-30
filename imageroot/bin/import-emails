@@ -45,5 +45,3 @@ if providers:
             print(f"### Error to import {user} to {os.environ['MODULE_ID']}: {e}", file=sys.stderr)
             continue
 
-# write file to avoid re-importing: sync2pilerdone (done by the systemd service)
-
