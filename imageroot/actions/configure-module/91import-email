@@ -6,8 +6,4 @@
 #
 
 # This script is used to start the import-email-to-piler.service
-if [[ -f 'sync2pilerdone' ]]; then
-    echo "## sync2pilerdone file is found, mail already migrated, exiting"
-    exit 0
-fi
 systemctl --user start --no-block import-email-to-piler.service

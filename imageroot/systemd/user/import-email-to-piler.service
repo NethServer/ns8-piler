@@ -3,9 +3,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 [Unit]
-Description= import emails to piler
+Description=Import emails to Piler
+ConditionPathExists=!%S/state/sync2pilerdone
 
 [Service]
 ExecStart=/usr/local/bin/runagent import-emails
-ExecStart=/usr/bin/touch sync2pilerdone
+ExecStart=/usr/bin/touch %S/state/sync2pilerdone
 Type=oneshot
