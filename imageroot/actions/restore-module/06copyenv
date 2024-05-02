@@ -18,8 +18,10 @@ for evar in [
         "TRAEFIK_HOST",
         "TRAEFIK_HTTP2HTTPS",
         "TRAEFIK_LETS_ENCRYPT",
-        "IMAP_HOST"
+        "MAIL_SERVER",
     ]:
     agent.set_env(evar, original_environment[evar])
 
-agent.dump_env()
+tcp_ports = os.environ['TCP_PORTS'].split(',')
+agent.set_env("TCP_PORT_ARCHIVE", tcp_ports[0])
+agent.set_env("TCP_PORT_TRAEFIK", tcp_ports[1])

@@ -7,6 +7,7 @@
 Description=Podman mariadb-app.service
 BindsTo=piler.service
 After=piler.service
+Before=piler-app.service
 
 [Service]
 Environment=PODMAN_SYSTEMD_UNIT=%n

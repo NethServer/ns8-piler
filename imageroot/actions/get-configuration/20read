@@ -9,14 +9,65 @@ import os
 import json
 import sys
 import agent
+import subprocess
 
 # Prepare return variable
 config = {}
 
 config["host"] = os.environ.get("TRAEFIK_HOST",'')
-config["imap_host"] = os.environ.get("IMAP_HOST",'')
 config["http2https"] =  os.environ.get("TRAEFIK_HTTP2HTTPS","False") == "True"
 config["lets_encrypt"] =  os.environ.get("TRAEFIK_LETS_ENCRYPT","False") == "True"
-config["tcp_port_archive"] = 2525
+config["mail_server"] = os.getenv("MAIL_SERVER", "")
+
+rdb = agent.redis_connect() # full read-only access on every key
+modules=[]
+# we query about all mail server to use it inside the user interface
+for key in agent.list_service_providers(rdb,'imap','tcp'):
+    obj = {
+        "name": key['module_id'],
+        "label": key['module_id'] + ' ('+key['mail_hostname']+')',
+        "value": key['module_uuid'],
+    }
+    modules.append(obj)
+
+# use it inside a dropdown
+config['mail_server_URL'] = modules
+
+command = "/usr/bin/podman exec mariadb-app mysql -u root -D piler -e 'SELECT password FROM user WHERE uid=0;'"
+output = subprocess.run(command, shell=True, capture_output=True, text=True)
+is_found_admin = '$1$PItc7d$zsUgON3JRrbdGS11t9JQW1' in output.stdout
+
+command = "/usr/bin/podman exec mariadb-app mysql -u root -D piler -e 'SELECT password FROM user WHERE uid=1;'"
+output = subprocess.run(command, shell=True, capture_output=True, text=True)
+is_found_auditor = "$1$SLIIIS$JMBwGqQg4lIir2P2YU1y.0" in output.stdout
+
+config['is_default_password'] = True if is_found_admin or is_found_auditor else False
+
+import_running = subprocess.run(['systemctl', '--user', 'is-active', "import-email-to-piler.service"], capture_output=True, text=True)
+config['import_email_is_running'] = True if import_running.stdout.strip() == 'active' else False
+
+# get the mail server module uuid
+providers = agent.list_service_providers(rdb, 'imap', 'tcp', {
+    'module_uuid': os.getenv("MAIL_SERVER", ""),
+})
+# function to test get-always-bcc
+def get_always_bcc(email):
+    mail_id = providers[0]["module_id"]
+    response = agent.tasks.run(f"module/{mail_id}", action='get-always-bcc')
+    agent.assert_exp(response['exit_code'] == 0)
+    # check if the always_bcc is set to the email
+    if response['output']['bcc'] == email:
+        return True
+    else:
+        return False
+if providers:
+    # we need to get bcc address for the mail server to display a warning in the UI if it is not set correctly
+    config['always_bcc_correctly_set'] = get_always_bcc('archive@'+os.environ['MODULE_ID'])
+else:
+    config['always_bcc_correctly_set'] = False
+# check if the piler service is running
+piler_running = subprocess.run(['systemctl', '--user', 'is-active', "piler-app.service"], capture_output=True, text=True)
+config['piler_is_running'] = True if piler_running.stdout.strip() == 'active' else False
+
 # Dump the configuratio to stdout
 json.dump(config, fp=sys.stdout)

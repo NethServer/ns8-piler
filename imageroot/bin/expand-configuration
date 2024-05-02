@@ -37,3 +37,4 @@ template = jenv.get_template('config-site.php')
 output = template.render(json.loads(json_properties))
 with open("piler_etc/config-site.php","w") as f:
     f.write(output)
+

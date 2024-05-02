@@ -8,8 +8,9 @@
             "host": "piler.nethserver.org",
             "http2https": true,
             "lets_encrypt": true,
-            "imap_host": "imap.nethserver.org",
-            "tcp_port_archive": 20010
+            "mail_server": "xxxxxxxxxxxxxxxxxxxxxxxxx",
+            "is_default_password": false,
+            "import_email_is_running": false
         }
     ],
     "type": "object",
@@ -17,8 +18,9 @@
         "host",
         "http2https",
         "lets_encrypt",
-        "imap_host",
-        "tcp_port_archive"
+        "mail_server",
+        "is_default_password",
+        "import_email_is_running"
     ],
     "properties": {
         "host": {
@@ -36,17 +38,20 @@
             "title": "HTTP to HTTPS redirection",
             "description": "Redirect all the HTTP requests to HTTPS"
         },
-        "imap_host": {
+        "mail_server": {
+            "description": "Mail server UUID",
             "type": "string",
-            "title":"IMAP hostname server",
-            "description": "Host name for the IMAP server (user authentication), like 'imap.nethserver.org'",
-            "format": "idn-hostname"
+            "title": "Mail server UUID"
         },
-        "tcp_port_archive": {
-            "title": "external SMTP port to listen email to archive@piler.domain.com",
-            "type": "integer",
-            "minimum": 2525,
-            "maximum": 65535
+        "is_default_password": {
+            "type": "boolean",
+            "title": "Default password",
+            "description": "True if the password is the default one"
+        },
+        "import_email_is_running": {
+            "type": "boolean",
+            "title": "Import email is running",
+            "description": "True if the import email is running"
         }
     }
 }
