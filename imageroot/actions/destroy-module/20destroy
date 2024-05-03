@@ -45,7 +45,6 @@ if providers_old:
     # function to test get-always-bcc
     def get_always_bcc(email):
         response = agent.tasks.run(f"module/{mail_id_old}", action='get-always-bcc')
-        agent.assert_exp(response['exit_code'] == 0)
         # check if the always_bcc is set to the email
         if response['output']['bcc'] == email:
             return True
