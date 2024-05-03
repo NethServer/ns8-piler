@@ -30,18 +30,31 @@ response = agent.tasks.run(
         'instance': os.environ['MODULE_ID']
     },
 )
-
-# we want to remove the relay from the mail server
+# retrieve the mail server module from the redis db
 rdb = agent.redis_connect()
 providers_old = agent.list_service_providers(rdb, 'imap', 'tcp', {
     'module_uuid': os.environ.get("MAIL_SERVER")
 })
 
 if providers_old:
+    # we want to remove the relay from the mail server
     mail_id_old = providers_old[0]["module_id"]
     response = agent.tasks.run(f"module/{mail_id_old}", action='remove-relay-rule', data={
         "rule_subject": "archive@"+os.environ['MODULE_ID']})
-    # we need to set bcc address for the mail server
-    response = agent.tasks.run(f"module/{mail_id_old}", action='set-always-bcc', data={
-        "bcc": ""
-    })
+
+    # function to test get-always-bcc
+    def get_always_bcc(email):
+        response = agent.tasks.run(f"module/{mail_id_old}", action='get-always-bcc')
+        agent.assert_exp(response['exit_code'] == 0)
+        # check if the always_bcc is set to the email
+        if response['output']['bcc'] == email:
+            return True
+        else:
+            return False
+    # we need to verify if the always_bcc is set to this module, if true we need to remove it
+    # in case of restoration of the module we want to prevent to remove the always_bcc set
+    # to the restored new module
+    if get_always_bcc('archive@'+os.environ['MODULE_ID']):
+        response = agent.tasks.run(f"module/{mail_id_old}", action='set-always-bcc', data={
+            "bcc": ""
+        })
