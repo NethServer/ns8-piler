@@ -43,7 +43,7 @@
     "host_pattern": "Must be a valid fully qualified domain name",
     "host_format": "Must be a valid fully qualified domain name",
     "password_warning": "The passwords are the default ones",
-    "password_warning_description": "Please change the password in the Piler webapp for admin@local(pilerrocks) and auditor@local(auditor)",
+    "password_warning_description": "change the password of auditor@local(default: `auditor`) and admin@local(default:`pilerrocks`), in the UI of NS8 the password banner must have been removed",
     "import_email_is_running_warning": "Import emails is running",
     "import_email_is_running_description": "Please wait until the import emails action is finished",
     "import_email_to_piler": "Import emails to Piler",
