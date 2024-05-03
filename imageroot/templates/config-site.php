@@ -25,3 +25,26 @@ $config['IMAP_PORT'] =  993;
 $config['IMAP_SSL'] = true;
 
 $config['CAPTCHA_FAILED_LOGIN_COUNT'] = 3;
+$config['CUSTOM_EMAIL_QUERY_FUNCTION'] = 'my_custom_func';
+
+function my_custom_func($username = '') {
+   $session = Registry::get('session');
+   $data = $session->get("auth_data");
+
+   $a = array();
+
+   // Array of domains to be appended
+   $domains = {{domains}};
+
+   foreach($data['emails'] as $email) {
+      $s = explode("@", $email);
+      // Iterate over each domain and append it to the username
+      foreach ($domains as $domain) {
+          array_push($a, $s[0] . "@" . $domain);
+      }
+   }
+
+   $data['emails'] = array_merge($data['emails'] , $a);
+
+   $session->set("auth_data", $data);
+}
