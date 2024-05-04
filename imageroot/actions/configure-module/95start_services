@@ -1,0 +1,11 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2024 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# piler is configured we can restart the service to autodiscover services
+systemctl --user enable piler.service
+systemctl --user restart piler.service
+

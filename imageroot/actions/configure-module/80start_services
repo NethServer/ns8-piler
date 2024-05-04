@@ -5,18 +5,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-# If the control reaches this step, the service can be enabled and started
-
-systemctl --user enable piler.service
-systemctl --user restart piler.service
-
-# before to send the action add-relay-rule or aler-relay-rule we need to wait until the service is active
-# does not work as expected in systemd post startup
-for ((i = 0; i < 60; i++)); do
-    if podman exec piler-app /etc/init.d/rc.piler status | grep 'piler is running'; then
-        break
-    fi
-    echo "Waiting for piler-app to be active..."
-    sleep 1
-done
-
+# to configure the relay rules, piler must be up and running to pass the ns8-mail verification/validation
+if ! systemctl --user is-active --quiet piler.service; then
+    systemctl --user enable piler.service
+    systemctl --user restart piler.service
+    # before to send the action add-relay-rule or aler-relay-rule we need to wait until the service is active
+    # does not work as expected in systemd post startup
+    for ((i = 0; i < 60; i++)); do
+        if podman exec piler-app /etc/init.d/rc.piler status | grep 'piler is running'; then
+            break
+        fi
+        echo "Waiting for piler-app to be active..."
+        sleep 1
+    done
+fi
