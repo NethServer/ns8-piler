@@ -19,7 +19,7 @@
         />
       </cv-column>
     </cv-row>
-    <cv-row v-if="piler_is_running && is_default_password_admin">
+    <cv-row v-if="is_default_password_admin">
       <cv-column>
         <NsInlineNotification
           kind="warning"
@@ -31,19 +31,7 @@
         />
       </cv-column>
     </cv-row>
-    <!-- the button is displayed in the admin warning box, do not need to display twice -->
-    <cv-row v-if="piler_is_running && is_default_password_auditor && is_default_password_admin">
-      <cv-column>
-        <NsInlineNotification
-          kind="warning"
-          :title="$t('settings.password_warning', {user:'auditor@local'})"
-          :description="$t('settings.password_warning_description', {user:'auditor@local', password:'auditor'})"
-          :showCloseButton="false"
-        />
-      </cv-column>
-    </cv-row>
-    <!-- only the admin password has been changed, let's display the button to go to piler -->
-    <cv-row v-if="piler_is_running && is_default_password_auditor && !is_default_password_admin">
+    <cv-row v-if="is_default_password_auditor">
       <cv-column>
         <NsInlineNotification
           kind="warning"
