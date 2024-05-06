@@ -9,7 +9,8 @@
             "http2https": true,
             "lets_encrypt": true,
             "mail_server": "xxxxxxxxxxxxxxxxxxxxxxxxx",
-            "is_default_password": false,
+            "is_default_password_admin": false,
+            "is_default_password_auditor": false,
             "import_email_is_running": false
         }
     ],
@@ -19,7 +20,8 @@
         "http2https",
         "lets_encrypt",
         "mail_server",
-        "is_default_password",
+        "is_default_password_admin",
+        "is_default_password_auditor",
         "import_email_is_running"
     ],
     "properties": {
@@ -43,7 +45,12 @@
             "type": "string",
             "title": "Mail server UUID"
         },
-        "is_default_password": {
+        "is_default_password_admin": {
+            "type": "boolean",
+            "title": "Default password",
+            "description": "True if the password is the default one"
+        },
+        "is_default_password_auditor": {
             "type": "boolean",
             "title": "Default password",
             "description": "True if the password is the default one"

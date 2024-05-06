@@ -19,17 +19,31 @@
         />
       </cv-column>
     </cv-row>
-    <cv-row v-if="is_default_password">
+    <cv-row v-if="is_default_password_admin">
       <cv-column>
         <NsInlineNotification
           kind="warning"
-          :title="$t('settings.password_warning')"
-          :description="$t('settings.password_warning_description')"
+          :title="$t('settings.password_warning', {user:'admin@local'})"
+          :description="$t('settings.password_warning_description', {user:'admin@local', password:'pilerrocks'})"
           :showCloseButton="false"
+          @click="goToPilerWebapp"
+          :actionLabel="$t('settings.open_piler')"
         />
       </cv-column>
     </cv-row>
-    <cv-row v-if="piler_is_running && ! always_bcc_correctly_set">
+    <cv-row v-if="is_default_password_auditor">
+      <cv-column>
+        <NsInlineNotification
+          kind="warning"
+          :title="$t('settings.password_warning', {user:'auditor@local'})"
+          :description="$t('settings.password_warning_description', {user:'auditor@local', password:'auditor'})"
+          :showCloseButton="false"
+          @click="goToPilerWebapp"
+          :actionLabel="$t('settings.open_piler')"
+        />
+      </cv-column>
+    </cv-row>
+    <cv-row v-if="piler_is_running && !always_bcc_correctly_set">
       <cv-column>
         <NsInlineNotification
           kind="warning"
@@ -53,13 +67,16 @@
       <cv-column>
         <cv-tile light>
           <cv-skeleton-text
-            v-show="loading.getConfiguration"
+            v-show="loading.getConfiguration || loading.configureModule"
             heading
             paragraph
             :line-count="10"
             width="80%"
           ></cv-skeleton-text>
-          <cv-form v-show="!loading.getConfiguration" @submit.prevent="configureModule">
+          <cv-form
+            v-show="!loading.getConfiguration && !loading.configureModule"
+            @submit.prevent="configureModule"
+          >
             <NsTextInput
               :label="$t('settings.piler_fqdn')"
               :placeholder="$t('settings.placeholder_piler_domain')"
@@ -189,7 +206,8 @@ export default {
       import_email_is_running: false,
       piler_is_running: false,
       always_bcc_correctly_set: false,
-      is_default_password: false,
+      is_default_password_admin: false,
+      is_default_password_auditor: false,
       isLetsEncryptEnabled: false,
       isHttpToHttpsEnabled: false,
       loading: {
@@ -225,6 +243,9 @@ export default {
     next();
   },
   methods: {
+    goToPilerWebapp() {
+      window.open(`https://${this.host}`, "_blank");
+    },
     async getConfiguration() {
       this.loading.getConfiguration = true;
       this.error.getConfiguration = "";
@@ -277,7 +298,8 @@ export default {
         this.mail_server = config.mail_server;
       });
       this.mail_server_URL = config.mail_server_URL;
-      this.is_default_password = config.is_default_password;
+      this.is_default_password_admin = config.is_default_password_admin;
+      this.is_default_password_auditor = config.is_default_password_auditor;
       this.import_email_is_running = config.import_email_is_running;
       this.piler_is_running = config.piler_is_running;
       this.always_bcc_correctly_set = config.always_bcc_correctly_set;
@@ -383,9 +405,9 @@ export default {
       this.loading.configureModule = false;
     },
     configureModuleCompleted() {
-      this.loading.configureModule = false;
       // reload configuration
       this.getConfiguration();
+      this.loading.configureModule = false;
     },
   },
 };
