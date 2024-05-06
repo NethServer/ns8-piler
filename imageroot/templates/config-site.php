@@ -7,6 +7,10 @@ $config['SITE_URL'] = 'https://{{host}}/';
 $config['SMTP_DOMAIN'] = $config[SITE_NAME_CONST];
 $config['SMTP_FROMADDR'] = 'no-reply@' . $config[SITE_NAME_CONST];
 $config['ADMIN_EMAIL'] = 'admin@' . $config[SITE_NAME_CONST];
+$config['SMARTHOST'] = '{{provider_ip}}';
+$config['SMARTHOST_PORT'] = 25;
+$config['SMARTHOST_USER'] = '';
+$config['SMARTHOST_PASSWORD'] = '';
 
 $config['DECRYPT_BINARY'] = '/usr/bin/pilerget';
 $config['DECRYPT_ATTACHMENT_BINARY'] = '/usr/bin/pileraget';
