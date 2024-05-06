@@ -24,4 +24,4 @@ $config['IMAP_HOST'] = '{{imap_host}}';
 $config['IMAP_PORT'] =  993;
 $config['IMAP_SSL'] = true;
 
-$config['CAPTCHA_FAILED_LOGIN_COUNT'] = 3;
+$config['CAPTCHA_FAILED_LOGIN_COUNT'] = 0;
