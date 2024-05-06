@@ -27,7 +27,7 @@
           :description="$t('settings.password_warning_description', {user:'admin@local', password:'pilerrocks'})"
           :showCloseButton="false"
           @click="goToPilerWebapp"
-          :actionLabel="$t('settings.go_to_piler')"
+          :actionLabel="$t('settings.open_piler')"
         />
       </cv-column>
     </cv-row>
@@ -51,7 +51,7 @@
           :description="$t('settings.password_warning_description', {user:'auditor@local', password:'auditor'})"
           :showCloseButton="false"
           @click="goToPilerWebapp"
-          :actionLabel="$t('settings.go_to_piler')"
+          :actionLabel="$t('settings.open_piler')"
         />
       </cv-column>
     </cv-row>
