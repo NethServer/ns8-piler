@@ -20,7 +20,7 @@ $config['ENABLE_IMAP_AUTH'] = 1;
 $config['RESTORE_OVER_IMAP'] = 1;
 $config['IMAP_RESTORE_FOLDER_INBOX'] = 'INBOX';
 $config['IMAP_RESTORE_FOLDER_SENT'] = 'Sent';
-$config['IMAP_HOST'] = '{{imap_host}}';
+$config['IMAP_HOST'] = '{{provider_ip}}';
 $config['IMAP_PORT'] =  993;
 $config['IMAP_SSL'] = true;
 

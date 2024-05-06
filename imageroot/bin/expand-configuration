@@ -23,7 +23,7 @@ jenv = Environment(
 
 properties = {
     "host":  os.environ.get("TRAEFIK_HOST",''),
-    "imap_host": os.environ.get("IMAP_HOST",''),
+    "provider_ip": os.environ.get("PROVIDER_IP",''),
 }
 
 json_properties = json.dumps(properties)
