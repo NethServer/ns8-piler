@@ -43,7 +43,7 @@
     "host_pattern": "Must be a valid fully qualified domain name",
     "host_format": "Must be a valid fully qualified domain name",
     "password_warning": "Change {user} password",
-    "password_warning_description": "The default password {password} of {user} must be changed",
+    "password_warning_description": "The default password \"{password}\" of \"{user}\" must be changed",
     "go_to_piler": "Go to Piler",
     "import_email_is_running_warning": "Import emails is running",
     "import_email_is_running_description": "Please wait until the import emails action is finished",
