@@ -29,7 +29,7 @@
         />
       </cv-column>
     </cv-row>
-    <cv-row v-if="piler_is_running && ! always_bcc_correctly_set">
+    <cv-row v-if="piler_is_running && !always_bcc_correctly_set">
       <cv-column>
         <NsInlineNotification
           kind="warning"
@@ -53,13 +53,16 @@
       <cv-column>
         <cv-tile light>
           <cv-skeleton-text
-            v-show="loading.getConfiguration"
+            v-show="loading.getConfiguration || loading.configureModule"
             heading
             paragraph
             :line-count="10"
             width="80%"
           ></cv-skeleton-text>
-          <cv-form v-show="!loading.getConfiguration" @submit.prevent="configureModule">
+          <cv-form
+            v-show="!loading.getConfiguration && !loading.configureModule"
+            @submit.prevent="configureModule"
+          >
             <NsTextInput
               :label="$t('settings.piler_fqdn')"
               :placeholder="$t('settings.placeholder_piler_domain')"
@@ -383,9 +386,9 @@ export default {
       this.loading.configureModule = false;
     },
     configureModuleCompleted() {
-      this.loading.configureModule = false;
       // reload configuration
       this.getConfiguration();
+      this.loading.configureModule = false;
     },
   },
 };
