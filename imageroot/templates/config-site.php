@@ -20,8 +20,8 @@ $config['DB_PASSWORD'] = 'piler';
 $config['ENABLE_MEMCACHED'] = 1;
 $memcached_server = ['memcached', 11211];
 
-$config['ENABLE_IMAP_AUTH'] = 1;
-$config['RESTORE_OVER_IMAP'] = 1;
+$config['ENABLE_IMAP_AUTH'] = 0;
+$config['RESTORE_OVER_IMAP'] = 0;
 $config['IMAP_RESTORE_FOLDER_INBOX'] = 'INBOX';
 $config['IMAP_RESTORE_FOLDER_SENT'] = 'Sent';
 $config['IMAP_HOST'] = '{{provider_ip}}';
