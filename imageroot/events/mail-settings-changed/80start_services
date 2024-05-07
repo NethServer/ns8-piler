@@ -13,5 +13,16 @@ import os
 event = json.load(sys.stdin)
 
 if event['module_uuid'] == os.getenv('MAIL_SERVER', ''):
-   # Restart to apply changed settings
+   # Restart to apply changed settings but first retrieve the IP of the first provider
+
+   #Connect to redis
+   rdb = agent.redis_connect()
+
+   providers = agent.list_service_providers(rdb, 'imap', 'tcp', {
+      'module_uuid': event['module_uuid'],
+   })
+
+   if providers:
+      # Set the PROVIDER_IP (IPV4) environment variable to the host of the first provider
+      agent.set_env("PROVIDER_IP", providers[0]["host"])
    agent.run_helper("systemctl", "--user", "try-restart", "piler.service").check_returncode()
