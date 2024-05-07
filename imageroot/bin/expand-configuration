@@ -8,8 +8,8 @@
 import os
 import glob
 import json
-# import sys
-# import subprocess
+import agent
+
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 for file in glob.iglob("piler_etc/*"):
@@ -21,9 +21,22 @@ jenv = Environment(
     keep_trailing_newline=True,
 )
 
+# the first start is for mail smtp validation only, MAIL_SERVER is not set
+if os.environ.get("MAIL_SERVER", ''):
+    #Connect to redis
+    rdb = agent.redis_connect(use_replica=True)
+
+    providers = agent.list_service_providers(rdb, 'imap', 'tcp', {
+        'module_uuid': os.environ["MAIL_SERVER"],
+    })
+
+    if providers and providers[0]["host"] != os.environ.get("PROVIDER_IP", ''):
+        # Set the PROVIDER_IP (IPV4) environment variable to the host of the first provider
+        agent.set_env("PROVIDER_IP", providers[0]["host"])
+
 properties = {
-    "host":  os.environ.get("TRAEFIK_HOST",''),
-    "provider_ip": os.environ.get("PROVIDER_IP",''),
+    "host":  os.environ["TRAEFIK_HOST"],
+    "provider_ip": os.environ["PROVIDER_IP"],
 }
 
 json_properties = json.dumps(properties)
@@ -37,4 +50,3 @@ template = jenv.get_template('config-site.php')
 output = template.render(json.loads(json_properties))
 with open("piler_etc/config-site.php","w") as f:
     f.write(output)
-
