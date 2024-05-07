@@ -7,6 +7,10 @@ $config['SITE_URL'] = 'https://{{host}}/';
 $config['SMTP_DOMAIN'] = $config[SITE_NAME_CONST];
 $config['SMTP_FROMADDR'] = 'no-reply@' . $config[SITE_NAME_CONST];
 $config['ADMIN_EMAIL'] = 'admin@' . $config[SITE_NAME_CONST];
+$config['SMARTHOST'] = '{{provider_ip}}';
+$config['SMARTHOST_PORT'] = 25;
+$config['SMARTHOST_USER'] = '';
+$config['SMARTHOST_PASSWORD'] = '';
 
 $config['DECRYPT_BINARY'] = '/usr/bin/pilerget';
 $config['DECRYPT_ATTACHMENT_BINARY'] = '/usr/bin/pileraget';
@@ -16,11 +20,11 @@ $config['DB_PASSWORD'] = 'piler';
 $config['ENABLE_MEMCACHED'] = 1;
 $memcached_server = ['memcached', 11211];
 
-$config['ENABLE_IMAP_AUTH'] = 1;
-$config['RESTORE_OVER_IMAP'] = 1;
+$config['ENABLE_IMAP_AUTH'] = 0;
+$config['RESTORE_OVER_IMAP'] = 0;
 $config['IMAP_RESTORE_FOLDER_INBOX'] = 'INBOX';
 $config['IMAP_RESTORE_FOLDER_SENT'] = 'Sent';
-$config['IMAP_HOST'] = '{{imap_host}}';
+$config['IMAP_HOST'] = '{{provider_ip}}';
 $config['IMAP_PORT'] =  993;
 $config['IMAP_SSL'] = true;
 
