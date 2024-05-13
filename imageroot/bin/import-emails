@@ -9,7 +9,24 @@ import subprocess
 import sys
 import os
 import agent
+import argparse
 
+parser = argparse.ArgumentParser(description='Script for importing user mailboxes from an IMAP server into the mail piler archive')
+parser.add_argument('-A', '--after', metavar='AFTER_TIMESTAMP', type=str,
+                    help='Import emails after the specified value (unix timestamp)')
+parser.add_argument('-B', '--before', metavar='BEFORE_TIMESTAMP', type=str,
+                    help='Import emails before the specified value (unix timestamp)')
+
+args = parser.parse_args()
+
+timestamp = ''
+
+if args.after is not None:
+    print("Import emails after timestamp:", args.after,  file=sys.stderr)
+    timestamp = '-A '+args.after
+elif args.before is not None:
+    print("Import emails before timestamp:", args.before,  file=sys.stderr)
+    timestamp = '-B '+args.before
 
 rdb = agent.redis_connect()
 
@@ -39,9 +56,8 @@ if providers:
 
             subprocess.run([
                 '/usr/bin/podman', 'exec', '-w', '/var/piler/imap', '-u', 'piler', 'piler-app',
-                '/usr/bin/pilerimport', '-i',  ip_address, '-u',  f'{user}*vmail', '-p', password, '-P', '993'
+                '/usr/bin/pilerimport', timestamp , '-i',  ip_address, '-u',  f'{user}*vmail', '-p', password, '-P', '993'
             ])
         except Exception as e:
             print(f"### Error to import {user} to {os.environ['MODULE_ID']}: {e}", file=sys.stderr)
             continue
-
