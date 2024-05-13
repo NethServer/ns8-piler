@@ -19,14 +19,14 @@ parser.add_argument('-B', '--before', metavar='BEFORE_TIMESTAMP', type=str,
 
 args = parser.parse_args()
 
-timestamp = ''
+timestamp = []
 
 if args.after is not None:
     print("Import emails after timestamp:", args.after,  file=sys.stderr)
-    timestamp = '-A '+args.after
+    timestamp += ['-A', args.after]
 elif args.before is not None:
     print("Import emails before timestamp:", args.before,  file=sys.stderr)
-    timestamp = '-B '+args.before
+    timestamp += ['-B', args.before]
 
 rdb = agent.redis_connect()
 
@@ -56,7 +56,7 @@ if providers:
 
             subprocess.run([
                 '/usr/bin/podman', 'exec', '-w', '/var/piler/imap', '-u', 'piler', 'piler-app',
-                '/usr/bin/pilerimport', '-Z', '200', timestamp , '-i',  ip_address, '-u',  f'{user}*vmail', '-p', password, '-P', '993'
+                '/usr/bin/pilerimport', '-Z', '200', *timestamp , '-i',  ip_address, '-u',  f'{user}*vmail', '-p', password, '-P', '993'
             ])
         except Exception as e:
             print(f"### Error to import {user} to {os.environ['MODULE_ID']}: {e}", file=sys.stderr)
