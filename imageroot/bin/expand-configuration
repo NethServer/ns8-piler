@@ -37,6 +37,7 @@ if os.environ.get("MAIL_SERVER", ''):
 properties = {
     "host":  os.environ["TRAEFIK_HOST"],
     "provider_ip": os.environ["PROVIDER_IP"],
+    "retention_days": os.environ.get("RETENTION_DAYS", 2557),
 }
 
 json_properties = json.dumps(properties)
