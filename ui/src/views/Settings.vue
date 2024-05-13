@@ -144,6 +144,29 @@
                 />
               </cv-column>
             </cv-row>
+            <!-- advanced options -->
+            <cv-accordion ref="accordion" class="maxwidth mg-bottom">
+              <cv-accordion-item :open="toggleAccordion[0]">
+                <template slot="title">{{ $t("settings.advanced") }}</template>
+                <template slot="content">
+                  <NsTextInput
+                    :label="$t('settings.retention_days')"
+                    :placeholder="$t('settings.placeholder_retention_days')"
+                    v-model.trim="retention_days"
+                    :invalid-message="$t(error.retention_days)"
+                    :disabled="loading.getConfiguration || loading.configureModule"
+                    ref="retention_days"
+                    type="number"
+                    tooltipAlignment="start"
+                    tooltipDirection="right"
+                    >
+                    <template slot="tooltip">
+                      {{ $t('settings.retention_days_tooltip')}}
+                    </template>
+                  </NsTextInput>
+                </template>
+              </cv-accordion-item>
+            </cv-accordion>
             <cv-row v-if="error.configureModule">
               <cv-column>
                 <NsInlineNotification
@@ -210,6 +233,7 @@ export default {
       is_default_password_auditor: false,
       isLetsEncryptEnabled: false,
       isHttpToHttpsEnabled: false,
+      retention_days: "2557",
       loading: {
         getConfiguration: false,
         configureModule: false,
@@ -223,6 +247,7 @@ export default {
         lets_encrypt: "",
         http2https: "",
         mail_server: "",
+        retention_days: "",
       },
     };
   },
@@ -303,6 +328,7 @@ export default {
       this.import_email_is_running = config.import_email_is_running;
       this.piler_is_running = config.piler_is_running;
       this.always_bcc_correctly_set = config.always_bcc_correctly_set;
+      this.retention_days = config.retention_days.toString();
       this.loading.getConfiguration = false;
       this.focusElement("host");
     },
@@ -324,6 +350,14 @@ export default {
 
         if (isValidationOk) {
           this.focusElement("mail_server");
+        }
+        isValidationOk = false;
+      }
+      if (this.retention_days < 1) {
+        this.error.retention_days = "settings.retention_days_error";
+
+        if (isValidationOk) {
+          this.focusElement("retention_days");
         }
         isValidationOk = false;
       }
@@ -380,6 +414,7 @@ export default {
             mail_server: this.mail_server,
             lets_encrypt: this.isLetsEncryptEnabled,
             http2https: this.isHttpToHttpsEnabled,
+            retention_days:  parseInt(this.retention_days),
           },
           extra: {
             title: this.$t("settings.instance_configuration", {
@@ -417,5 +452,8 @@ export default {
 @import "../styles/carbon-utils";
 .mg-bottom {
   margin-bottom: $spacing-06;
+}
+.maxwidth {
+  max-width: 38rem;
 }
 </style>
