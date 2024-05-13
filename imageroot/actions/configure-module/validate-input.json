@@ -7,7 +7,8 @@
         {
             "host": "piler.nethserver.org",
             "http2https": true,
-            "lets_encrypt": true
+            "lets_encrypt": true,
+            "retention_days": 365
         }
     ],
     "type": "object",
@@ -15,7 +16,8 @@
         "host",
         "http2https",
         "lets_encrypt",
-        "mail_server"
+        "mail_server",
+        "retention_days"
     ],
     "properties": {
         "host": {
@@ -39,6 +41,11 @@
             "description": "Mail server UUID",
             "type": "string",
             "title": "Mail server UUID"
+        },
+        "retention_days": {
+            "description": "Number of days to keep the emails",
+            "type": "integer",
+            "title": "Retention days"
         }
     }
 }
