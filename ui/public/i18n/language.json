@@ -61,7 +61,8 @@
     "not_configured_to_archive": "Not used by an archive",
     "the_mail_server_is_already_configured_description": "You can overwrite the mail server configuration but you will not be able to choose another mail server after that",
     "the_mail_server_is_already_configured": "This mail server is already configured",
-    "bound_to_this_archive": "Bound to this archive"
+    "bound_to_this_archive": "Bound to this archive",
+    "not_bound_to_a_mail_server": "Not bound to a mail server"
   },
   "about": {
     "title": "About"

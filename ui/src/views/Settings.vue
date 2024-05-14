@@ -316,7 +316,7 @@ watch: {
       const label = `${server.ui_name ? server.ui_name : server.module_id} (${server.node_name ? server.node_name : this.$t("settings.node", { nodeId: server.node })}): ${this.always_bcc_correctly_set ? this.$t("settings.bound_to_this_archive") :server.bcc_not_set ? this.$t("settings.not_configured_to_archive") : this.$t("settings.configured_to_archive")}`;
       return {
         name: label,
-        label: label,
+        label: ! this.always_bcc_correctly_set ? this.$t("settings.not_bound_to_a_mail_server") : label,
         value: server.module_uuid,
         bcc_not_set: server.bcc_not_set
       };
