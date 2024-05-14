@@ -53,16 +53,6 @@
         />
       </cv-column>
     </cv-row>
-    <cv-row v-if="import_email_is_running">
-      <cv-column>
-        <NsInlineNotification
-          kind="warning"
-          :title="$t('settings.import_email_is_running_warning')"
-          :description="$t('settings.import_email_is_running_description')"
-          :showCloseButton="false"
-        />
-      </cv-column>
-    </cv-row>
     <cv-row>
       <cv-column>
         <cv-tile light>
@@ -134,16 +124,6 @@
                 {{ $t("settings.choose_the_mail_server_to_use") }}
               </template>
             </NsComboBox>
-            <cv-row v-if="error.importEmailToPiler">
-              <cv-column>
-                <NsInlineNotification
-                  kind="error"
-                  :title="$t('action.importEmailToPiler')"
-                  :description="error.importEmailToPiler"
-                  :showCloseButton="false"
-                />
-              </cv-column>
-            </cv-row>
             <cv-row v-if="error.configureModule">
               <cv-column>
                 <NsInlineNotification
@@ -172,7 +152,6 @@
 <script>
 import to from "await-to-js";
 import { mapState } from "vuex";
-import Play20 from "@carbon/icons-vue/es/play--outline/20";
 import {
   QueryParamService,
   UtilService,
@@ -198,12 +177,10 @@ export default {
       q: {
         page: "settings",
       },
-      Play20,
       urlCheckInterval: null,
       host: "",
       mail_server: "",
       mail_server_URL: [],
-      import_email_is_running: false,
       piler_is_running: false,
       always_bcc_correctly_set: false,
       is_default_password_admin: false,
@@ -213,10 +190,8 @@ export default {
       loading: {
         getConfiguration: false,
         configureModule: false,
-        importEmailToPiler: false,
       },
       error: {
-        importEmailToPiler: "",
         getConfiguration: "",
         configureModule: "",
         host: "",
@@ -300,7 +275,6 @@ export default {
       this.mail_server_URL = config.mail_server_URL;
       this.is_default_password_admin = config.is_default_password_admin;
       this.is_default_password_auditor = config.is_default_password_auditor;
-      this.import_email_is_running = config.import_email_is_running;
       this.piler_is_running = config.piler_is_running;
       this.always_bcc_correctly_set = config.always_bcc_correctly_set;
       this.loading.getConfiguration = false;

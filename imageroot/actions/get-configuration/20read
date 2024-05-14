@@ -44,9 +44,6 @@ is_found_auditor = "$1$SLIIIS$JMBwGqQg4lIir2P2YU1y.0" in output.stdout
 config['is_default_password_admin'] = True if is_found_admin else False
 config['is_default_password_auditor'] = True if is_found_auditor else False
 
-import_running = subprocess.run(['systemctl', '--user', 'is-active', "import-email-to-piler.service"], capture_output=True, text=True)
-config['import_email_is_running'] = True if import_running.stdout.strip() == 'active' else False
-
 # get the mail server module uuid
 providers = agent.list_service_providers(rdb, 'imap', 'tcp', {
     'module_uuid': os.getenv("MAIL_SERVER", ""),
