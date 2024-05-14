@@ -124,29 +124,21 @@
                 {{ $t("settings.choose_the_mail_server_to_use") }}
               </template>
             </NsComboBox>
-            <!-- advanced options -->
-            <cv-accordion ref="accordion" class="maxwidth mg-bottom">
-              <cv-accordion-item :open="toggleAccordion[0]">
-                <template slot="title">{{ $t("settings.advanced") }}</template>
-                <template slot="content">
-                  <NsTextInput
-                    :label="$t('settings.retention_days')"
-                    :placeholder="$t('settings.placeholder_retention_days')"
-                    v-model.trim="retention_days"
-                    :invalid-message="$t(error.retention_days)"
-                    :disabled="loading.getConfiguration || loading.configureModule"
-                    ref="retention_days"
-                    type="number"
-                    tooltipAlignment="start"
-                    tooltipDirection="right"
-                    >
-                    <template slot="tooltip">
-                      {{ $t('settings.retention_days_tooltip')}}
-                    </template>
-                  </NsTextInput>
-                </template>
-              </cv-accordion-item>
-            </cv-accordion>
+            <NsTextInput
+              :label="$t('settings.retention_days')"
+              :placeholder="$t('settings.placeholder_retention_days')"
+              v-model.trim="retention_days"
+              :invalid-message="$t(error.retention_days)"
+              :disabled="loading.getConfiguration || loading.configureModule"
+              ref="retention_days"
+              type="number"
+              tooltipAlignment="start"
+              tooltipDirection="right"
+              >
+              <template slot="tooltip">
+                {{ $t('settings.retention_days_tooltip')}}
+              </template>
+            </NsTextInput>
             <cv-row v-if="error.configureModule">
               <cv-column>
                 <NsInlineNotification
@@ -426,8 +418,5 @@ export default {
 @import "../styles/carbon-utils";
 .mg-bottom {
   margin-bottom: $spacing-06;
-}
-.maxwidth {
-  max-width: 38rem;
 }
 </style>
