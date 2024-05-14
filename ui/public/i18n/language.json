@@ -51,7 +51,7 @@
     "always_bcc_not_set_warning": "Always BCC is not set",
     "always_bcc_not_set_description": "Always BCC is not set in the mail server, you could try to configure again piler",
     "retention_days": "Retention days",
-    "retention_days_error": "Retention days must be a number superior to 0",
+    "retention_days_error": "Enter a number greater than 0",
     "placeholder_retention_days": "Type the number of days",
     "retention_days_tooltip": "The number of days to keep the emails in the archive"
   },
