@@ -313,7 +313,7 @@ watch: {
       this.loading.getConfiguration = false;
     },
     convertToComboboxObject(server) {
-      const label = `${server.ui_name ? server.ui_name : server.module_id} (${server.node_name ? server.node_name : this.$t("settings.node", { nodeId: server.node })}): ${server.bcc_not_set ? this.$t("settings.not_configured_to_archive") : this.$t("settings.configured_to_archive")}`;
+      const label = `${server.ui_name ? server.ui_name : server.module_id} (${server.node_name ? server.node_name : this.$t("settings.node", { nodeId: server.node })}): ${this.always_bcc_correctly_set ? this.$t("settings.bound_to_this_archive") :server.bcc_not_set ? this.$t("settings.not_configured_to_archive") : this.$t("settings.configured_to_archive")}`;
       return {
         name: label,
         label: label,
@@ -449,9 +449,7 @@ watch: {
       this.loading.configureModule = false;
     },
     configureModuleCompleted() {
-      // reload configuration
-      this.getConfiguration();
-      this.loading.configureModule = false;
+      window.location.reload();
     },
   },
 };
