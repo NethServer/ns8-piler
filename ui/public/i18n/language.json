@@ -53,7 +53,15 @@
     "retention_days": "Retention days",
     "retention_days_error": "Enter a number greater than 0",
     "placeholder_retention_days": "Type the number of days",
-    "retention_days_tooltip": "The number of days to keep the emails in the archive"
+    "retention_days_tooltip": "The number of days to keep the emails in the archive",
+    "node": "Node {nodeId}",
+    "warnings_one_time_installation_description": "The archive is bound to a mail server, you can only configure it once",
+    "warnings_one_time_installation": "Important information",
+    "configured_to_archive": "Configured to an archive",
+    "not_configured_to_archive": "Not used by an archive",
+    "the_mail_server_is_already_configured_description": "You can overwrite the mail server configuration but you will not be able to choose another mail server after that",
+    "the_mail_server_is_already_configured": "This mail server is already configured",
+    "bound_to_this_archive": "Bound to this archive"
   },
   "about": {
     "title": "About"
