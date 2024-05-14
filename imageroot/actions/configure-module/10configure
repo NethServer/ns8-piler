@@ -25,3 +25,5 @@ providers = agent.list_service_providers(rdb, 'imap', 'tcp', {
 if providers:
     # Set the PROVIDER_IP (IPV4) environment variable to the host of the first provider
     agent.set_env("PROVIDER_IP", providers[0]["host"])
+
+agent.set_env("RETENTION_DAYS", data["retention_days"])

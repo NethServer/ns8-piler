@@ -10,7 +10,8 @@
             "lets_encrypt": true,
             "mail_server": "xxxxxxxxxxxxxxxxxxxxxxxxx",
             "is_default_password_admin": false,
-            "is_default_password_auditor": false
+            "is_default_password_auditor": false,
+            "retention_days": 365
         }
     ],
     "type": "object",
@@ -20,7 +21,8 @@
         "lets_encrypt",
         "mail_server",
         "is_default_password_admin",
-        "is_default_password_auditor"
+        "is_default_password_auditor",
+        "retention_days"
     ],
     "properties": {
         "host": {
@@ -52,6 +54,11 @@
             "type": "boolean",
             "title": "Default password",
             "description": "True if the password is the default one"
+        },
+        "retention_days": {
+            "type": "integer",
+            "title": "Retention days",
+            "description": "Number of days to keep the emails"
         }
     }
 }

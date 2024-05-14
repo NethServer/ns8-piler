@@ -18,7 +18,7 @@ config["host"] = os.environ.get("TRAEFIK_HOST",'')
 config["http2https"] =  os.environ.get("TRAEFIK_HTTP2HTTPS","False") == "True"
 config["lets_encrypt"] =  os.environ.get("TRAEFIK_LETS_ENCRYPT","False") == "True"
 config["mail_server"] = os.getenv("MAIL_SERVER", "")
-
+config['retention_days'] = int(os.getenv("RETENTION_DAYS", 2557))
 rdb = agent.redis_connect() # full read-only access on every key
 modules=[]
 # we query about all mail server to use it inside the user interface
