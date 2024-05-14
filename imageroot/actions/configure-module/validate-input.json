@@ -45,6 +45,7 @@
         "retention_days": {
             "description": "Number of days to keep the emails",
             "type": "integer",
+            "minimum": 1,
             "title": "Retention days"
         }
     }
