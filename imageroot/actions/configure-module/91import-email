@@ -1,9 +1,0 @@
-#!/bin/bash
-
-#
-# Copyright (C) 2024 Nethesis S.r.l.
-# SPDX-License-Identifier: GPL-3.0-or-later
-#
-
-# This script is used to start the import-email-to-piler.service
-systemctl --user start --no-block import-email-to-piler.service
