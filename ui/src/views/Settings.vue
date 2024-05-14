@@ -104,6 +104,26 @@
                 $t("settings.enabled")
               }}</template>
             </cv-toggle>
+            <cv-row>
+              <cv-column>
+                <NsInlineNotification
+                  kind="info"
+                  :title="$t('settings.warnings_one_time_installation')"
+                  :description="$t('settings.warnings_one_time_installation_description')"
+                  :showCloseButton="false"
+                />
+              </cv-column>
+            </cv-row>
+            <cv-row v-if="mail_already_configured && ! piler_is_running">
+              <cv-column>
+                <NsInlineNotification
+                  kind="warning"
+                  :title="$t('settings.the_mail_server_is_already_configured')"
+                  :description="$t('settings.the_mail_server_is_already_configured_description')"
+                  :showCloseButton="false"
+                />
+              </cv-column>
+            </cv-row>
             <NsComboBox
               v-model.trim="mail_server"
               :autoFilter="true"
@@ -115,7 +135,7 @@
               :acceptUserInput="false"
               :showItemType="true"
               :invalid-message="$t(error.mail_server)"
-              :disabled="loading.getConfiguration || loading.configureModule"
+              :disabled="loading.getConfiguration || loading.configureModule || mail_server !== '' && piler_is_running"
               tooltipAlignment="start"
               tooltipDirection="top"
               ref="mail_server"
@@ -203,6 +223,7 @@ export default {
       isLetsEncryptEnabled: false,
       isHttpToHttpsEnabled: false,
       retention_days: "2557",
+      mail_already_configured: false,
       loading: {
         getConfiguration: false,
         configureModule: false,
@@ -234,6 +255,17 @@ export default {
     clearInterval(this.urlCheckInterval);
     next();
   },
+watch: {
+  mail_server: function() {
+    //function to display the warning message if the mail server is already configured
+    let server = this.mail_server_URL.find(server => server.value === this.mail_server);
+    if (server && server.bcc_not_set) {
+      this.mail_already_configured = false;
+    } else if (server && !server.bcc_not_set) {
+      this.mail_already_configured = true;
+    }
+  }
+},
   methods: {
     goToPilerWebapp() {
       window.open(`https://${this.host}`, "_blank");
@@ -280,21 +312,32 @@ export default {
       this.error.getConfiguration = this.$t("error.generic_error");
       this.loading.getConfiguration = false;
     },
+    convertToComboboxObject(server) {
+      const label = `${server.ui_name ? server.ui_name : server.module_id} (${server.node_name ? server.node_name : this.$t("settings.node", { nodeId: server.node })}): ${server.bcc_not_set ? this.$t("settings.not_configured_to_archive") : this.$t("settings.configured_to_archive")}`;
+      return {
+        name: label,
+        label: label,
+        value: server.module_uuid,
+        bcc_not_set: server.bcc_not_set
+      };
+    },
     getConfigurationCompleted(taskContext, taskResult) {
       const config = taskResult.output;
       this.host = config.host;
+      this.always_bcc_correctly_set = config.always_bcc_correctly_set;
       this.isLetsEncryptEnabled = config.lets_encrypt;
       this.isHttpToHttpsEnabled = config.http2https;
       // force to reload mail_server value after dom update
       this.$nextTick(() => {
         this.mail_server = config.mail_server;
       });
-      this.mail_server_URL = config.mail_server_URL;
       this.is_default_password_admin = config.is_default_password_admin;
       this.is_default_password_auditor = config.is_default_password_auditor;
       this.piler_is_running = config.piler_is_running;
-      this.always_bcc_correctly_set = config.always_bcc_correctly_set;
       this.retention_days = config.retention_days.toString();
+      this.mail_server_URL = config.mail_server_URL.map(
+          this.convertToComboboxObject
+        );;
       this.loading.getConfiguration = false;
       this.focusElement("host");
     },
