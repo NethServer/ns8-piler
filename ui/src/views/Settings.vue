@@ -173,7 +173,7 @@
               kind="primary"
               :icon="Save20"
               :loading="loading.configureModule"
-              :disabled="loading.getConfiguration || loading.configureModule"
+              :disabled="loading.getConfiguration || loading.configureModule || piler_is_running && !always_bcc_correctly_set"
             >
               {{ $t("settings.save") }}
             </NsButton>
@@ -313,10 +313,10 @@ watch: {
       this.loading.getConfiguration = false;
     },
     convertToComboboxObject(server) {
-      const label = `${server.ui_name ? server.ui_name : server.module_id} (${server.node_name ? server.node_name : this.$t("settings.node", { nodeId: server.node })}): ${this.always_bcc_correctly_set ? this.$t("settings.bound_to_this_archive") :server.bcc_set === 'not_set' ? this.$t("settings.not_configured_to_archive") : this.$t("settings.configured_to_archive", {archive: server.bcc_set})}`;
+      const label = `${server.ui_name ? server.ui_name : server.module_id} (${server.node_name ? server.node_name : this.$t("settings.node", { nodeId: server.node })}): ${server.bcc_set === 'not_set' ? this.$t("settings.not_configured_to_archive") : this.$t("settings.configured_to_archive", {archive: server.bcc_set})}`;
       return {
         name: label,
-        label: ! this.always_bcc_correctly_set && this.piler_is_running ? this.$t("settings.not_bound_to_a_mail_server") : label,
+        label: label,
         value: server.module_uuid,
         bcc_set: server.bcc_set
       };
@@ -420,7 +420,7 @@ watch: {
           action: taskAction,
           data: {
             host: this.host,
-            mail_server: this.piler_is_running && !this.always_bcc_correctly_set ? 'ownership_set_by_another_archive' : this.mail_server,
+            mail_server: this.mail_server,
             lets_encrypt: this.isLetsEncryptEnabled,
             http2https: this.isHttpToHttpsEnabled,
             retention_days:  parseInt(this.retention_days),

@@ -16,9 +16,6 @@ agent.set_weight(os.path.basename(__file__), 0) # Validation step, no task progr
 # If parsing fails, output everything to stderr
 data = json.load(sys.stdin)
 
-if data['mail_server'] == 'ownership_set_by_another_archive':
-    sys.exit(0)
-
 # Connect to redis
 rdb = agent.redis_connect()
 
