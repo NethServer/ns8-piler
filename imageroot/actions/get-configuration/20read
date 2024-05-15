@@ -26,9 +26,9 @@ def get_always_bcc(mail_id):
     agent.assert_exp(response['exit_code'] == 0)
     # check if the always_bcc is not set
     if response['output']['bcc'] == '':
-        return True
+        return 'not_set'
     else:
-        return False
+        return response['output']['bcc'].removeprefix('archive@')
 
 rdb = agent.redis_connect() # full read-only access on every key
 modules=[]
@@ -42,7 +42,7 @@ for key in agent.list_service_providers(rdb,'imap','tcp'):
         "ui_name" : "" if key['ui_name'] == None else key['ui_name'],
         "node": key['node'],
         "node_name": node_name,
-        "bcc_not_set": get_always_bcc(key['module_id'])
+        "bcc_set": get_always_bcc(key['module_id'])
     }
     modules.append(obj)
 
@@ -64,19 +64,9 @@ config['is_default_password_auditor'] = True if is_found_auditor else False
 providers = agent.list_service_providers(rdb, 'imap', 'tcp', {
     'module_uuid': os.getenv("MAIL_SERVER", ""),
 })
-# function to test get-always-bcc
-def get_always_bcc(email):
-    mail_id = providers[0]["module_id"]
-    response = agent.tasks.run(f"module/{mail_id}", action='get-always-bcc')
-    agent.assert_exp(response['exit_code'] == 0)
-    # check if the always_bcc is set to the email
-    if response['output']['bcc'] == email:
-        return True
-    else:
-        return False
 if providers:
     # we need to get bcc address for the mail server to display a warning in the UI if it is not set correctly
-    config['always_bcc_correctly_set'] = get_always_bcc('archive@'+os.environ['MODULE_ID'])
+    config['always_bcc_correctly_set'] = True if os.environ['MODULE_ID'] in get_always_bcc(providers[0]["module_id"]) else False
 else:
     config['always_bcc_correctly_set'] = False
 # check if the piler service is running

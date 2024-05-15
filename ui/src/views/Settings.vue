@@ -259,9 +259,9 @@ watch: {
   mail_server: function() {
     //function to display the warning message if the mail server is already configured
     let server = this.mail_server_URL.find(server => server.value === this.mail_server);
-    if (server && server.bcc_not_set) {
+    if (server && server.bcc_set === 'not_set') {
       this.mail_already_configured = false;
-    } else if (server && !server.bcc_not_set) {
+    } else if (server && server.bcc_set !== 'not_set') {
       this.mail_already_configured = true;
     }
   }
@@ -313,12 +313,12 @@ watch: {
       this.loading.getConfiguration = false;
     },
     convertToComboboxObject(server) {
-      const label = `${server.ui_name ? server.ui_name : server.module_id} (${server.node_name ? server.node_name : this.$t("settings.node", { nodeId: server.node })}): ${this.always_bcc_correctly_set ? this.$t("settings.bound_to_this_archive") :server.bcc_not_set ? this.$t("settings.not_configured_to_archive") : this.$t("settings.configured_to_archive")}`;
+      const label = `${server.ui_name ? server.ui_name : server.module_id} (${server.node_name ? server.node_name : this.$t("settings.node", { nodeId: server.node })}): ${this.always_bcc_correctly_set ? this.$t("settings.bound_to_this_archive") :server.bcc_set === 'not_set' ? this.$t("settings.not_configured_to_archive") : this.$t("settings.configured_to_archive", {archive: server.bcc_set})}`;
       return {
         name: label,
-        label: ! this.always_bcc_correctly_set ? this.$t("settings.not_bound_to_a_mail_server") : label,
+        label: ! this.always_bcc_correctly_set && this.piler_is_running ? this.$t("settings.not_bound_to_a_mail_server") : label,
         value: server.module_uuid,
-        bcc_not_set: server.bcc_not_set
+        bcc_set: server.bcc_set
       };
     },
     getConfigurationCompleted(taskContext, taskResult) {
