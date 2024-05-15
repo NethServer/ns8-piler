@@ -104,7 +104,7 @@
                 $t("settings.enabled")
               }}</template>
             </cv-toggle>
-            <cv-row>
+            <cv-row v-if="!mail_already_configured && ! piler_is_running">
               <cv-column>
                 <NsInlineNotification
                   kind="info"
