@@ -420,7 +420,7 @@ watch: {
           action: taskAction,
           data: {
             host: this.host,
-            mail_server: this.mail_server,
+            mail_server: this.piler_is_running && !this.always_bcc_correctly_set ? 'ownership_set_by_another_archive' : this.mail_server,
             lets_encrypt: this.isLetsEncryptEnabled,
             http2https: this.isHttpToHttpsEnabled,
             retention_days:  parseInt(this.retention_days),
