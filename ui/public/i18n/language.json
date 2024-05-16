@@ -47,7 +47,6 @@
     "open_piler": "Open Piler",
     "advanced": "Advanced",
     "import_old_emails_to_piler_description": "Import old emails to Piler, this process may take a long time",
-    "always_bcc_is_already_set": "Always BCC is already set in the server, you need to manually remove it (POSTFIX_ALWAYS_BCC)",
     "always_bcc_not_set_warning": "Always BCC is not set",
     "always_bcc_not_set_description": "Always BCC is not set in the mail server, probably configured by another archive, the emails will not be archived",
     "retention_days": "Retention days",
