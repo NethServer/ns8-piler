@@ -152,12 +152,8 @@
               :disabled="loading.getConfiguration || loading.configureModule"
               ref="retention_days"
               type="number"
-              tooltipAlignment="start"
-              tooltipDirection="right"
+              :helperText="$t('settings.retention_days_helper')"
               >
-              <template slot="tooltip">
-                {{ $t('settings.retention_days_tooltip')}}
-              </template>
             </NsTextInput>
             <cv-row v-if="error.configureModule">
               <cv-column>
