@@ -23,8 +23,13 @@
       <cv-column>
         <NsInlineNotification
           kind="warning"
-          :title="$t('settings.password_warning', {user:'admin@local'})"
-          :description="$t('settings.password_warning_description', {user:'admin@local', password:'pilerrocks'})"
+          :title="$t('settings.password_warning', { user: 'admin@local' })"
+          :description="
+            $t('settings.password_warning_description', {
+              user: 'admin@local',
+              password: 'pilerrocks',
+            })
+          "
           :showCloseButton="false"
           @click="goToPilerWebapp"
           :actionLabel="$t('settings.open_piler')"
@@ -35,8 +40,13 @@
       <cv-column>
         <NsInlineNotification
           kind="warning"
-          :title="$t('settings.password_warning', {user:'auditor@local'})"
-          :description="$t('settings.password_warning_description', {user:'auditor@local', password:'auditor'})"
+          :title="$t('settings.password_warning', { user: 'auditor@local' })"
+          :description="
+            $t('settings.password_warning_description', {
+              user: 'auditor@local',
+              password: 'auditor',
+            })
+          "
           :showCloseButton="false"
           @click="goToPilerWebapp"
           :actionLabel="$t('settings.open_piler')"
@@ -104,22 +114,28 @@
                 $t("settings.enabled")
               }}</template>
             </cv-toggle>
-            <cv-row v-if="!mail_already_configured && ! piler_is_running">
+            <cv-row v-if="!mail_already_configured && !piler_is_running">
               <cv-column>
                 <NsInlineNotification
                   kind="info"
                   :title="$t('settings.warnings_one_time_installation')"
-                  :description="$t('settings.warnings_one_time_installation_description')"
+                  :description="
+                    $t('settings.warnings_one_time_installation_description')
+                  "
                   :showCloseButton="false"
                 />
               </cv-column>
             </cv-row>
-            <cv-row v-if="mail_already_configured && ! piler_is_running">
+            <cv-row v-if="mail_already_configured && !piler_is_running">
               <cv-column>
                 <NsInlineNotification
                   kind="warning"
                   :title="$t('settings.the_mail_server_is_already_configured')"
-                  :description="$t('settings.the_mail_server_is_already_configured_description')"
+                  :description="
+                    $t(
+                      'settings.the_mail_server_is_already_configured_description'
+                    )
+                  "
                   :showCloseButton="false"
                 />
               </cv-column>
@@ -135,7 +151,11 @@
               :acceptUserInput="false"
               :showItemType="true"
               :invalid-message="$t(error.mail_server)"
-              :disabled="loading.getConfiguration || loading.configureModule || mail_server !== '' && piler_is_running"
+              :disabled="
+                loading.getConfiguration ||
+                loading.configureModule ||
+                (mail_server !== '' && piler_is_running)
+              "
               tooltipAlignment="start"
               tooltipDirection="top"
               ref="mail_server"
@@ -153,7 +173,7 @@
               ref="retention_days"
               type="number"
               :helperText="$t('settings.retention_days_helper')"
-              >
+            >
             </NsTextInput>
             <cv-row v-if="error.configureModule">
               <cv-column>
@@ -169,7 +189,11 @@
               kind="primary"
               :icon="Save20"
               :loading="loading.configureModule"
-              :disabled="loading.getConfiguration || loading.configureModule || piler_is_running && !always_bcc_correctly_set"
+              :disabled="
+                loading.getConfiguration ||
+                loading.configureModule ||
+                (piler_is_running && !always_bcc_correctly_set)
+              "
             >
               {{ $t("settings.save") }}
             </NsButton>
@@ -251,17 +275,19 @@ export default {
     clearInterval(this.urlCheckInterval);
     next();
   },
-watch: {
-  mail_server: function() {
-    //function to display the warning message if the mail server is already configured
-    let server = this.mail_server_URL.find(server => server.value === this.mail_server);
-    if (server && server.bcc_set === 'not_set') {
-      this.mail_already_configured = false;
-    } else if (server && server.bcc_set !== 'not_set') {
-      this.mail_already_configured = true;
-    }
-  }
-},
+  watch: {
+    mail_server: function () {
+      //function to display the warning message if the mail server is already configured
+      let server = this.mail_server_URL.find(
+        (server) => server.value === this.mail_server
+      );
+      if (server && server.bcc_set === "not_set") {
+        this.mail_already_configured = false;
+      } else if (server && server.bcc_set !== "not_set") {
+        this.mail_already_configured = true;
+      }
+    },
+  },
   methods: {
     goToPilerWebapp() {
       window.open(`https://${this.host}`, "_blank");
@@ -309,12 +335,22 @@ watch: {
       this.loading.getConfiguration = false;
     },
     convertToComboboxObject(server) {
-      const label = `${server.ui_name ? server.ui_name : server.module_id} (${server.node_name ? server.node_name : this.$t("settings.node", { nodeId: server.node })}): ${server.bcc_set === 'not_set' ? this.$t("settings.not_configured_to_archive") : this.$t("settings.configured_to_archive", {archive: server.bcc_set})}`;
+      const label = `${server.ui_name ? server.ui_name : server.module_id} (${
+        server.node_name
+          ? server.node_name
+          : this.$t("settings.node", { nodeId: server.node })
+      }): ${
+        server.bcc_set === "not_set"
+          ? this.$t("settings.not_configured_to_archive")
+          : this.$t("settings.configured_to_archive", {
+              archive: server.bcc_set,
+            })
+      }`;
       return {
         name: label,
         label: label,
         value: server.module_uuid,
-        bcc_set: server.bcc_set
+        bcc_set: server.bcc_set,
       };
     },
     getConfigurationCompleted(taskContext, taskResult) {
@@ -332,8 +368,8 @@ watch: {
       this.piler_is_running = config.piler_is_running;
       this.retention_days = config.retention_days.toString();
       this.mail_server_URL = config.mail_server_URL.map(
-          this.convertToComboboxObject
-        );;
+        this.convertToComboboxObject
+      );
       this.loading.getConfiguration = false;
       this.focusElement("host");
     },
@@ -419,7 +455,7 @@ watch: {
             mail_server: this.mail_server,
             lets_encrypt: this.isLetsEncryptEnabled,
             http2https: this.isHttpToHttpsEnabled,
-            retention_days:  parseInt(this.retention_days),
+            retention_days: parseInt(this.retention_days),
           },
           extra: {
             title: this.$t("settings.instance_configuration", {
