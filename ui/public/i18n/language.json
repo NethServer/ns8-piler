@@ -52,7 +52,7 @@
     "retention_days": "Retention duration",
     "retention_days_error": "Enter a number greater than 0",
     "placeholder_retention_days": "Type the number of days",
-    "retention_days_helper": "Enter the number of days.",
+    "retention_days_helper": "Enter the number of days",
     "node": "Node {nodeId}",
     "warnings_one_time_installation_description": "You won't be able to change it after the first configuration",
     "warnings_one_time_installation": "Choose mail server carefully",
