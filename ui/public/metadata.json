@@ -1,7 +1,7 @@
 {
   "name": "Piler",
   "description": {
-    "en": "Piler is an email archive that keeps your messages in a central repository. Piler archives every email it receives."
+    "en": "Email archiving solution"
   },
   "categories": ["collaboration"],
   "authors": [
@@ -11,9 +11,9 @@
     }
   ],
   "docs": {
-    "documentation_url": "https://mailpiler.com/documentation/",
+    "documentation_url": "https://docs.nethserver.org/projects/ns8/en/latest/piler.html",
     "bug_url": "https://github.com/NethServer/dev",
-    "code_url": "https://github.com/author/ns8-piler"
+    "code_url": "https://github.com/NethServer/ns8-piler"
   },
   "source": "ghcr.io/nethserver/piler"
 }
