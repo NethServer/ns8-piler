@@ -27,7 +27,7 @@ ip_address = rdb.hget(f'node/{node_id}/vpn', 'ip_address')
 
 if providers:
     mail_id = providers[0]["module_id"]
-    if not os.environ.get("MAIL_SERVER"):
+    if not os.environ.get("MAIL_SERVER") or data.get("restore", False):
     # first configuration, we add the relay rule
         response = agent.tasks.run(f"module/{mail_id}", action='add-relay-rule', data={
                 "rule_type": "always-bcc",
