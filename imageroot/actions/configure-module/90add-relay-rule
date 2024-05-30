@@ -45,21 +45,5 @@ if providers:
             "bcc": "archive@"+os.environ['MODULE_ID']
         })
         agent.assert_exp(response['exit_code'] == 0)
-    else:
-        response = agent.tasks.run(f"module/{mail_id}", action='alter-relay-rule', data={
-                "rule_type": "always-bcc",
-                "rule_subject": "archive@"+os.environ['MODULE_ID'],
-                "host": ip_address,
-                "port":  int(os.environ['TCP_PORT_ARCHIVE']),
-                "mandatory_tls": False,
-                "username": "",
-                "password": "",
-                "enabled": True})
-        agent.assert_exp(response['exit_code'] == 0)
-        # we need to set bcc address for the mail server
-        response = agent.tasks.run(f"module/{mail_id}", action='set-always-bcc', data={
-            "bcc": "archive@"+os.environ['MODULE_ID']
-        })
-        agent.assert_exp(response['exit_code'] == 0)
 
 agent.set_env("MAIL_SERVER", data["mail_server"])
