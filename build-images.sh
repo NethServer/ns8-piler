@@ -43,11 +43,11 @@ buildah commit "${container}" "${repobase}/${reponame}"
 # Append the image URL to the images array
 images+=("${repobase}/${reponame}")
 
-# Setup CI when pushing to Github. 
+# Setup CI when pushing to Github.
 # Warning! docker::// protocol expects lowercase letters (,,)
 if [[ -n "${CI}" ]]; then
     # Set output value for Github Actions
-    printf "::set-output name=images::%s\n" "${images[*],,}"
+    printf "images=%s\n" "${images[*],,}" >> "${GITHUB_OUTPUT}"
 else
     # Just print info for manual push
     printf "Publish the images with:\n\n"
