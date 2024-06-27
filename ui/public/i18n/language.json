@@ -51,7 +51,7 @@
     "always_bcc_not_set_description": "The selected mail server no longer archives messages here. Please update its Always Bcc setting for proper archiving.",
     "retention_days": "Retention duration",
     "retention_days_error": "Enter a number greater than 0",
-    "placeholder_retention_days": "Type the number of days",
+    "placeholder_retention_days": "E.g. 180",
     "retention_days_helper": "Enter the number of days",
     "node": "Node {nodeId}",
     "warnings_one_time_installation_description": "You won't be able to change it after the first configuration",
