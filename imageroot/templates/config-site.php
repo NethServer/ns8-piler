@@ -29,3 +29,6 @@ $config['IMAP_PORT'] =  993;
 $config['IMAP_SSL'] = true;
 
 $config['CAPTCHA_FAILED_LOGIN_COUNT'] = 0;
+
+$config['SPHINX_HOSTNAME'] = '127.0.0.1:9306';
+$config['SPHINX_HOSTNAME_READONLY'] = '127.0.0.1:9307';
