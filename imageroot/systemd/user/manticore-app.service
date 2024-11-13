@@ -17,7 +17,7 @@ ExecStartPre=/bin/rm -f %t/manticore-app.pid %t/manticore-app.ctr-id
 ExecStart=/usr/bin/podman run --conmon-pidfile %t/manticore-app.pid \
     --cidfile %t/manticore-app.ctr-id --cgroups=no-conmon \
     --pod-id-file %t/piler.pod-id --replace -d --name manticore-app \
-    --volume ./manticore/manticore.conf:/etc/manticoresearch/manticore.conf:Z \
+    --volume %S/state/manticore/manticore.conf:/etc/manticoresearch/manticore.conf:Z \
     --volume piler_manticore:/var/lib/manticore:Z \
     ${MANTICORE_IMAGE}
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/manticore-app.ctr-id -t 10

@@ -31,6 +31,7 @@ ExecStart=/usr/bin/podman run --conmon-pidfile %t/piler-app.pid \
     --env PILER_HOSTNAME=${TRAEFIK_HOST} \
     --env MEMCACHED_HOSTNAME=127.0.0.1 \
     --env MANTICORE_HOSTNAME=127.0.0.1 \
+    --env RT=1 \
     ${PILER_IMAGE}
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/piler-app.ctr-id -t 10
 ExecReload=/usr/local/bin/runagent expand-configuration
