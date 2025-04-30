@@ -2,7 +2,7 @@
 
 Start and configure a piler instance.
 - The module uses [piler Docker Image](https://hub.docker.com/r/sutoj/piler).
-- The code source and the link to raise issues to the project developer can be found at [bitbucket piler](https://bitbucket.org/jsuto/piler/)
+- The code source and the link to raise issues to the project developer can be found at [github piler](https://github.com/jsuto/piler)
 
 ## Install
 
