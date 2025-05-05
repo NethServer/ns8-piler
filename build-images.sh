@@ -35,7 +35,7 @@ buildah config --entrypoint=/ \
     --label="org.nethserver.authorizations=node:fwadm traefik@node:routeadm mail@any:mailadm" \
     --label="org.nethserver.tcp-ports-demand=2" \
     --label="org.nethserver.rootfull=0" \
-    --label="org.nethserver.images=docker.io/sutoj/piler:1.4.4 docker.io/mariadb:10.11.7 docker.io/memcached:1.6.26-alpine" \
+    --label="org.nethserver.images=docker.io/sutoj/piler:1.4.7 docker.io/mariadb:10.11.11 docker.io/memcached:1.6.38-alpine docker.io/manticoresearch/manticore:6.3.8" \
     "${container}"
 # Commit the image
 buildah commit "${container}" "${repobase}/${reponame}"
@@ -43,11 +43,11 @@ buildah commit "${container}" "${repobase}/${reponame}"
 # Append the image URL to the images array
 images+=("${repobase}/${reponame}")
 
-# Setup CI when pushing to Github. 
+# Setup CI when pushing to Github.
 # Warning! docker::// protocol expects lowercase letters (,,)
 if [[ -n "${CI}" ]]; then
     # Set output value for Github Actions
-    printf "::set-output name=images::%s\n" "${images[*],,}"
+    printf "images=%s\n" "${images[*],,}" >> "${GITHUB_OUTPUT}"
 else
     # Just print info for manual push
     printf "Publish the images with:\n\n"
