@@ -31,6 +31,7 @@ ExecStart=/usr/bin/podman run --conmon-pidfile %t/piler-app.pid \
     --env MEMCACHED_HOSTNAME=127.0.0.1 \
     --env MANTICORE_HOSTNAME=127.0.0.1 \
     --env RT=1 \
+    --image-volume=ignore \
     ${PILER_IMAGE}
 # We have a sed error inside the conatiner if piler.conf is mounted directly 
 ExecStartPost=podman cp ./piler_etc/piler.conf piler-app:/etc/piler/piler.conf
