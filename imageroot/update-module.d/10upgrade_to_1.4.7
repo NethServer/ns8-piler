@@ -11,5 +11,5 @@
 # test if the systemd service piler is running
 if systemctl is-active --user --quiet piler-app; then
     # remove the configuration files
-    podman exec piler-app bash -c "cd /etc/piler && rm -rf .my.cnf MANTICORE config-site.dist.php  manticore.conf manticore.conf.dist piler-nginx.conf piler-nginx.conf.dist piler.conf piler.conf.dist sphinx.conf.dist"
+    podman exec piler-app bash -c "cd /etc/piler && rm -rf .my.cnf MANTICORE config-site.dist.php  manticore.conf manticore.conf.dist piler-nginx.conf piler-nginx.conf.dist piler.conf.dist sphinx.conf.dist"
 fi
