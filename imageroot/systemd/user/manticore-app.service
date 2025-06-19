@@ -20,7 +20,7 @@ ExecStart=/usr/bin/podman run --conmon-pidfile %t/manticore-app.pid \
     --pod-id-file %t/piler.pod-id --replace -d --name manticore-app \
     --user manticore \
     --volume ./manticore/manticore.conf:/etc/manticoresearch/manticore.conf:Z \
-    --volume manticore:/var/lib/manticore:Z \
+    --volume piler_manticore:/var/lib/manticore:Z \
     ${MANTICORE_IMAGE}
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/manticore-app.ctr-id -t 10
 ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/manticore-app.ctr-id

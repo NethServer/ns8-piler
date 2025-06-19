@@ -15,7 +15,10 @@ if systemctl is-active --user --quiet piler-app; then
     # test if PREV_PILER_IMAGE =~ "1.4.4"
     if [[ "${PREV_PILER_IMAGE}" =~ "1.4.4" ]]; then
         # remove the configuration files
+        echo "Removing configuration files from previous version 1.4.4"
         podman exec piler-app bash -c "cd /etc/piler && rm -rf .my.cnf MANTICORE config-site.dist.php  manticore.conf manticore.conf.dist piler-nginx.conf piler-nginx.conf.dist piler.conf.dist sphinx.conf.dist"
+        echo "Removing piler_manticore volume for manticore upgrade to 9.3.2"
+        podman volume rm -f piler_manticore
     else 
         echo "No need to remove configuration files, previous version is not 1.4.4"
     fi
