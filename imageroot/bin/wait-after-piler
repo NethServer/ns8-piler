@@ -1,0 +1,18 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2025 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+set -e
+
+exec 1>&2 # Redirect any output to the journal (stderr)
+
+# Wait for the piler-app container to be active
+for ((i = 0; i < 60; i++)); do
+    if podman exec piler-app /etc/init.d/rc.piler status | grep 'piler is running'; then
+        break
+    fi
+    echo "Waiting for piler-app to be active..."
+    sleep 1
+done
