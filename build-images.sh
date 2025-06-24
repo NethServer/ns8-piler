@@ -35,7 +35,7 @@ buildah config --entrypoint=/ \
     --label="org.nethserver.authorizations=node:fwadm traefik@node:routeadm mail@any:mailadm" \
     --label="org.nethserver.tcp-ports-demand=2" \
     --label="org.nethserver.rootfull=0" \
-    --label="org.nethserver.images=docker.io/sutoj/piler:1.4.4 docker.io/mariadb:10.11.11 docker.io/memcached:1.6.26-alpine" \
+    --label="org.nethserver.images=docker.io/sutoj/piler:1.4.7b docker.io/mariadb:10.11.13 docker.io/memcached:1.6.38-alpine docker.io/manticoresearch/manticore:9.3.2" \
     "${container}"
 # Commit the image
 buildah commit "${container}" "${repobase}/${reponame}"
