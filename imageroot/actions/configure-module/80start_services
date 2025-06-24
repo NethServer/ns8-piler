@@ -4,19 +4,12 @@
 # Copyright (C) 2022 Nethesis S.r.l.
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
+set -e
+
+exec 1>&2 # Redirect any output to the journal (stderr)
 
 # If the control reaches this step, the service can be enabled and started
 
 systemctl --user enable piler.service
-systemctl --user restart piler.service
-
-# before to send the action add-relay-rule or aler-relay-rule we need to wait until the service is active
-# does not work as expected in systemd post startup
-for ((i = 0; i < 60; i++)); do
-    if podman exec piler-app /etc/init.d/rc.piler status | grep 'piler is running'; then
-        break
-    fi
-    echo "Waiting for piler-app to be active..."
-    sleep 1
-done
-
+# we need to list all the services to execute and wait after wait-after-piler script (90add-relay-rule expect smtp validation)
+systemctl --user restart piler.service manticore-app.service  mariadb-app.service  memcached-app.service  piler-app.service
