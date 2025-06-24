@@ -6,7 +6,7 @@
 [Unit]
 Description=Podman  piler-app.service
 BindsTo=piler.service
-After=piler.service mariadb-app.service memcached-app.service
+After=piler.service mariadb-app.service memcached-app.service manticore-app.service
 
 [Service]
 Environment=PODMAN_SYSTEMD_UNIT=%n
@@ -20,18 +20,22 @@ ExecStartPre=/bin/rm -f %t/piler-app.pid %t/piler-app.ctr-id
 ExecStart=/usr/bin/podman run --conmon-pidfile %t/piler-app.pid \
     --cidfile %t/piler-app.ctr-id --cgroups=no-conmon \
     --pod-id-file %t/piler.pod-id --replace -d --name  piler-app \
-    --volume %S/state/piler_etc/config-site.php:/etc/piler/config-site.php:Z \
-    --volume %S/state/piler_etc/piler.conf:/etc/piler/piler.conf:Z \
-    --volume piler_etc:/etc/piler:Z \
-    --volume piler_manticore:/var/piler/manticore:Z \
-    --volume piler_store:/var/piler/store:Z \
+    --volume ./piler_etc/config-site.php:/etc/piler/config-site.php:z \
+    --volume piler_etc:/etc/piler:z \
+    --volume piler_store:/var/piler/store:z \
     --env MYSQL_DATABASE=piler \
     --env MYSQL_USER=piler \
     --env MYSQL_PASSWORD=piler \
     --env MYSQL_HOSTNAME=127.0.0.1 \
     --env PILER_HOSTNAME=${TRAEFIK_HOST} \
-    --env MEMCACHED_HOST=127.0.0.1 \
+    --env MEMCACHED_HOSTNAME=127.0.0.1 \
+    --env MANTICORE_HOSTNAME=127.0.0.1 \
+    --env RT=1 \
+    --image-volume=ignore \
     ${PILER_IMAGE}
+ExecStartPost=podman cp ./piler_etc/piler.conf piler-app:/etc/piler/piler.conf
+ExecStartPost=runagent wait-after-piler
+ExecStartPost=-runagent reindexing-emails
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/piler-app.ctr-id -t 10
 ExecReload=/usr/local/bin/runagent expand-configuration
 ExecReload=/usr/bin/podman kill -s HUP piler-app
