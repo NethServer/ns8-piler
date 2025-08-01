@@ -21,6 +21,7 @@ ExecStart=/usr/bin/podman run --conmon-pidfile %t/piler-app.pid \
     --cidfile %t/piler-app.ctr-id --cgroups=no-conmon \
     --pod-id-file %t/piler.pod-id --replace -d --name  piler-app \
     --volume ./piler_etc/config-site.php:/etc/piler/config-site.php:z \
+    --volume ./piler_etc/piler.conf:/etc/piler/piler.conf:z \
     --volume piler_etc:/etc/piler:z \
     --volume piler_store:/var/piler/store:z \
     --env MYSQL_DATABASE=piler \
@@ -33,7 +34,6 @@ ExecStart=/usr/bin/podman run --conmon-pidfile %t/piler-app.pid \
     --env RT=1 \
     --image-volume=ignore \
     ${PILER_IMAGE}
-ExecStartPost=podman cp ./piler_etc/piler.conf piler-app:/etc/piler/piler.conf
 ExecStartPost=runagent wait-after-piler
 ExecStartPost=-runagent reindexing-emails
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/piler-app.ctr-id -t 10
