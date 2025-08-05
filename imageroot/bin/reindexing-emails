@@ -1,0 +1,20 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2025 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+set -e
+exec 1>&2 # Redirect any output to the journal (stderr)
+
+
+if podman volume inspect piler_manticore > /dev/null 2>&1; then
+    # remove the old index the change of sphinx version need to reindex the emails
+    echo "Removing piler_manticore volume for manticore upgrade to 10.1.0"
+    podman volume rm -f piler_manticore
+    # start import-emails the change of sphinx version need to reindex the emails
+    echo "reindexing emails..."
+    exec ../bin/import-emails
+else 
+    echo "No need to reindexing emails, previous version is not 1.4.4"
+fi

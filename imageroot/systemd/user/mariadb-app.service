@@ -12,6 +12,7 @@ Before=piler-app.service
 [Service]
 Environment=PODMAN_SYSTEMD_UNIT=%n
 EnvironmentFile=%S/state/environment
+WorkingDirectory=%S/state
 Restart=always
 TimeoutStopSec=70
 ExecStartPre=/bin/rm -f %t/mariadb-app.pid %t/mariadb-app.ctr-id
@@ -19,7 +20,8 @@ ExecStart=/usr/bin/podman run --conmon-pidfile %t/mariadb-app.pid \
     --cidfile %t/mariadb-app.ctr-id --cgroups=no-conmon \
     --pod-id-file %t/piler.pod-id --replace -d --name mariadb-app \
     --env-file=%S/state/environment \
-    --volume mysql-data:/var/lib/mysql/:Z \
+    --volume ../templates/piler.cnf:/etc/mysql/conf.d/piler.cnf:z \
+    --volume mysql-data:/var/lib/mysql/:z \
     --env MARIADB_ROOT_PASSWORD=Nethesis,1234 \
     --env MARIADB_DATABASE=piler \
     --env MARIADB_USER=piler \
