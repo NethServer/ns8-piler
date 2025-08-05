@@ -10,7 +10,7 @@ exec 1>&2 # Redirect any output to the journal (stderr)
 
 if podman volume inspect piler_manticore > /dev/null 2>&1; then
     # remove the old index the change of sphinx version need to reindex the emails
-    echo "Removing piler_manticore volume for manticore upgrade to 9.3.2"
+    echo "Removing piler_manticore volume for manticore upgrade to 10.1.0"
     podman volume rm -f piler_manticore
     # start import-emails the change of sphinx version need to reindex the emails
     echo "reindexing emails..."
