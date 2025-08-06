@@ -13,8 +13,8 @@ if podman volume inspect piler_manticore > /dev/null 2>&1; then
     echo "Removing piler_manticore volume for manticore upgrade to 10.1.0"
     podman volume rm -f piler_manticore
     # start import-emails the change of sphinx version need to reindex the emails
-    echo "reindexing emails..."
-    exec ../bin/import-emails
+    echo "Reindexing emails now ..."
+    podman exec -w /var/piler/imap piler-app reindex -a -p
 else 
     echo "No need to reindexing emails, previous version is not 1.4.4"
 fi
