@@ -93,4 +93,15 @@ Previous emails are sent automatically one time to piler after the first configu
 
     runagent -m piler1 import-emails
 
+## Recreate The Index Data Files
+
+This is a troubleshooting task, use it only when you have to or you are advised to rebuild the manticore index from scratch.
+
+Piler relies heavily on the manticore index data. The reindex utility is for healing it if anything goes wrong.
+
+    runagent -m piler1 podman exec -w /var/piler/imap piler-app reindex -a -p
+
+
+
+
 Piler understands and manage  duplicated emails.
