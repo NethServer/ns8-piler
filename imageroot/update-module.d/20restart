@@ -6,4 +6,8 @@
 #
 set -e
 
-systemctl --user try-restart piler.service
+# we need to restart the stack to wait after piler full restart
+if systemctl --user is-active --quiet piler-app.service; then
+    echo "Piler is active, restarting the stack"
+    systemctl --user restart piler.service manticore-app.service  mariadb-app.service  memcached-app.service piler-app.service
+fi
