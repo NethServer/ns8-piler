@@ -7,14 +7,22 @@
 set -e
 exec 1>&2 # Redirect any output to the journal (stderr)
 
-
 if podman volume inspect piler_manticore > /dev/null 2>&1; then
     # remove the old index the change of sphinx version need to reindex the emails
+    # needed for upgrade from 1.4.4 to 1.4.8 (ns8-piler 1.0.1)
     echo "Removing piler_manticore volume for manticore upgrade to 10.1.0"
     podman volume rm -f piler_manticore
-    # start import-emails the change of sphinx version need to reindex the emails
-    echo "Reindexing emails now ..."
-    exec podman exec -w /var/piler/imap piler-app reindex -a -p
-else 
-    echo "No need to reindexing emails, previous version is not 1.4.4"
+
+    # reindex emails in background
+    podman exec -d -w /var/piler/imap piler-app bash -c '
+        exec >/proc/1/fd/1
+        exec 2>/proc/1/fd/2
+        echo "Reindexing emails now ..."
+        reindex -a -p
+        if [ $? -ne 0 ]; then
+            echo "Reindexing failed"
+            exit 1
+        fi
+        echo "Reindexing is finished"
+    '
 fi
