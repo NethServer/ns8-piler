@@ -35,7 +35,6 @@ ExecStart=/usr/bin/podman run --conmon-pidfile %t/piler-app.pid \
     --image-volume=ignore \
     ${PILER_IMAGE}
 ExecStartPost=runagent wait-after-piler
-ExecStartPost=-runagent reindexing-emails
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/piler-app.ctr-id -t 10
 ExecReload=/usr/local/bin/runagent expand-configuration
 ExecReload=/usr/bin/podman kill -s HUP piler-app
