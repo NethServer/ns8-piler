@@ -17,7 +17,6 @@ original_environment = request['environment']
 for evar in [
         "TRAEFIK_HOST",
         "TRAEFIK_HTTP2HTTPS",
-        "TRAEFIK_LETS_ENCRYPT",
         "MAIL_SERVER",
         "RETENTION_DAYS",
     ]:
