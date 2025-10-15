@@ -14,8 +14,6 @@
     "type": "object",
     "required": [
         "host",
-        "http2https",
-        "lets_encrypt",
         "mail_server",
         "retention_days"
     ],

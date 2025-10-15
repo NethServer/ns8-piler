@@ -14,6 +14,8 @@ import agent
 # Try to parse the stdin as JSON.
 # If parsing fails, output everything to stderr
 data = json.load(sys.stdin)
+host = data.get("host")
+h2hs = data.get("http2https", True)
 
 # Connect to redis
 rdb = agent.redis_connect()
@@ -27,3 +29,5 @@ if providers:
     agent.set_env("PROVIDER_IP", providers[0]["host"])
 
 agent.set_env("RETENTION_DAYS", data["retention_days"])
+agent.set_env("TRAEFIK_HOST", host)
+agent.set_env("TRAEFIK_HTTP2HTTPS", h2hs)
