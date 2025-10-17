@@ -110,7 +110,7 @@
                 $t("settings.enabled")
               }}</template>
             </NsToggle>
-            <cv-row v-if="letsEncryptIsEnabled && !isLetsEncryptEnabled">
+            <cv-row v-if="isLetsEncryptCurrentlyEnabled && !isLetsEncryptEnabled">
               <cv-column>
                 <NsInlineNotification
                   kind="warning"
@@ -290,7 +290,7 @@ export default {
       is_default_password_admin: false,
       is_default_password_auditor: false,
       isLetsEncryptEnabled: false,
-      letsEncryptIsEnabled: false,
+      isLetsEncryptCurrentlyEnabled: false,
       isHttpToHttpsEnabled: false,
       retention_days: "2557",
       mail_already_configured: false,
@@ -466,7 +466,7 @@ export default {
       this.host = config.host;
       this.always_bcc_correctly_set = config.always_bcc_correctly_set;
       this.isLetsEncryptEnabled = config.lets_encrypt;
-      this.letsEncryptIsEnabled = config.lets_encrypt;
+      this.isLetsEncryptCurrentlyEnabled = config.lets_encrypt;
       this.isHttpToHttpsEnabled = config.http2https;
       // force to reload mail_server value after dom update
       this.$nextTick(() => {
