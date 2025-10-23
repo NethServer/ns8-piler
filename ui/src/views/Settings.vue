@@ -73,10 +73,7 @@
             :line-count="10"
             width="80%"
           ></cv-skeleton-text>
-          <cv-form
-            v-show="!stillLoading"
-            @submit.prevent="configureModule"
-          >
+          <cv-form v-show="!stillLoading" @submit.prevent="configureModule">
             <NsTextInput
               :label="$t('settings.piler_fqdn')"
               :placeholder="$t('settings.placeholder_piler_domain')"
@@ -110,7 +107,9 @@
                 $t("settings.enabled")
               }}</template>
             </NsToggle>
-            <cv-row v-if="isLetsEncryptCurrentlyEnabled && !isLetsEncryptEnabled">
+            <cv-row
+              v-if="isLetsEncryptCurrentlyEnabled && !isLetsEncryptEnabled"
+            >
               <cv-column>
                 <NsInlineNotification
                   kind="warning"
