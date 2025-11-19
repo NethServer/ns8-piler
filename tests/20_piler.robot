@@ -54,7 +54,7 @@ Verify piler frontend title
 
 Send email to the mail server
     Put File    ${CURDIR}/test-msa.sh    /tmp/test-msa.sh
-    ${mail_server} =    Set Variable    smtp://127.0.0.1:10587
+    ${mail_server} =    Set Variable    smtp://127.0.0.1:25
     ${from} =    Set Variable    u1@domain.test
     ${to} =    Set Variable    u3@domain.test
     ${out}  ${err}  ${rc} =    Execute Command
