@@ -34,6 +34,7 @@ buildah add "${container}" ui/dist /ui
 buildah config --entrypoint=/ \
     --label="org.nethserver.authorizations=node:fwadm traefik@node:routeadm mail@any:mailadm" \
     --label="org.nethserver.tcp-ports-demand=2" \
+    --label="org.nethserver.volumes=piler_store" \
     --label="org.nethserver.rootfull=0" \
     --label="org.nethserver.min-core=3.12.4-0" \
     --label="org.nethserver.images=docker.io/sutoj/piler:1.4.8 docker.io/mariadb:10.11.16 docker.io/memcached:1.6.41-alpine docker.io/manticoresearch/manticore:10.1.0" \
