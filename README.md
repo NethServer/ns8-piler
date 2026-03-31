@@ -58,6 +58,20 @@ api-cli run get-configuration --agent module/piler1 --data null | jq
 }
 ```
 
+## Custom configuration files
+
+You can modify the configuration by adding a config-site.php.local file to the folder `/home/pilerX/.config/state/templates`, if the files is present they are used instead of the default one and they are included in the backup of the module
+
+```
+runagent -m pilerX
+# copy the source file to be customized
+cp ../templates/config-site.php templates/config-site.php 
+# edit the file
+nano template/config-site.php.local
+# restart the service
+systemctl restart --user piler-app
+```
+
 ## Uninstall
 
 To uninstall the instance:
