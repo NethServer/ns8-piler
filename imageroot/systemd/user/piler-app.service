@@ -14,6 +14,7 @@ EnvironmentFile=%S/state/environment
 WorkingDirectory=%S/state
 Restart=always
 TimeoutStopSec=70
+ExecStartPre=/bin/mkdir -p %S/state/templates
 ExecStartPre=/bin/mkdir -p %S/state/piler_etc
 ExecStartPre=/usr/local/bin/runagent expand-configuration
 ExecStartPre=/bin/rm -f %t/piler-app.pid %t/piler-app.ctr-id

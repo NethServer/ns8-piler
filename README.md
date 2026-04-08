@@ -65,7 +65,7 @@ You can modify the configuration by adding a config-site.php.local file to the f
 ```
 runagent -m pilerX
 # copy the source file to be customized
-cp ../templates/config-site.php templates/config-site.php 
+cp ../templates/config-site.php templates/config-site.php.local 
 # edit the file
 nano template/config-site.php.local
 # restart the service
