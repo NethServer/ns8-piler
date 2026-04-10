@@ -69,7 +69,7 @@ cp ../templates/config-site.php templates/config-site.php.local
 # edit the file
 nano template/config-site.php.local
 # restart the service
-systemctl restart --user piler-app
+systemctl restart --user piler.service
 ```
 
 ## Uninstall
