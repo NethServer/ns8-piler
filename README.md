@@ -63,7 +63,7 @@ api-cli run get-configuration --agent module/piler1 --data null | jq
 You can modify the configuration by adding a config-site.php.local file to the folder `/home/pilerX/.config/state/templates`, if the files is present they are used instead of the default one and they are included in the backup of the module
 
 ```
-runagent -m pilerX
+runagent -m piler1
 # copy the source file to be customized
 cp ../templates/config-site.php templates/config-site.php.local 
 # edit the file
