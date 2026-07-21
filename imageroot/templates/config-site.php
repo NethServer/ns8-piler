@@ -40,3 +40,7 @@ $config['SPHINX_HOSTNAME'] = '127.0.0.1:9306';
 $config['SPHINX_HOSTNAME_READONLY'] = '127.0.0.1:9307';
 $config['SPHINX_MAIN_INDEX'] = 'piler1';
 $config['RT'] = 1;
+
+# Same unprivileged piler uid runs php-fpm and the daemon, so reload directly
+# via the init script - no sudo/systemctl (avoids jsuto/piler#479).
+$config['RELOAD_COMMAND'] = '/etc/init.d/rc.piler reload';
