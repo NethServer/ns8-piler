@@ -24,6 +24,7 @@ ExecStart=/usr/bin/podman run --conmon-pidfile %t/piler-app.pid \
     --cap-add=NET_BIND_SERVICE \
     --volume piler_etc:/etc/piler:z \
     --volume piler_store:/var/piler/store \
+    --volume piler_spool:/var/piler/tmp \
     --env MYSQL_DATABASE=piler \
     --env MYSQL_USER=piler \
     --env MYSQL_PASSWORD=piler \
