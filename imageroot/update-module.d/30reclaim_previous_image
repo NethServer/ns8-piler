@@ -6,17 +6,20 @@
 #
 set -e
 
-# update-module never removes a variable, so PILER_IMAGE survives naming the
-# image nobody runs. Ordered after 20restart: before it the old container still
-# holds that image and rmi refuses.
-if [ "${PREV_PILER_SERVER_IMAGE:-}" != "None" ] || [ -z "${PILER_IMAGE:-}" ]; then
-    exit 0
-fi
+# Only a build predating piler-server left an upstream image behind.
+[ "${PREV_PILER_SERVER_IMAGE:-}" = "None" ] || exit 0
+
+# PILER_IMAGE named it. update-module never removes a variable, so it survives;
+# this script clears it once the image is gone, so an empty one means done.
+[ -n "${PILER_IMAGE:-}" ] || exit 0
 
 echo "Reclaiming the image this module no longer runs: ${PILER_IMAGE}" >&2
 
+# Ordered after 20restart, so piler-app already runs the new image. No -f: refuse
+# rather than pull one out from under a container, and keep the variable when it
+# does, being the only record of what to reclaim.
 if podman rmi "${PILER_IMAGE}" > /dev/null 2>&1; then
     python3 -c 'import agent; agent.unset_env("PILER_IMAGE")'
 else
-    echo "  still in use, leaving it and PILER_IMAGE in place" >&2
+    echo "  could not remove it, leaving PILER_IMAGE in place" >&2
 fi
