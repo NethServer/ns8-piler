@@ -72,6 +72,18 @@ nano template/config-site.php.local
 systemctl restart --user piler.service
 ```
 
+The container writes some keys itself, on every start, from the `--env` values in
+`piler-app.service`. Editing these in a `.local` copy has no effect; change the
+matching `--env` instead:
+
+`DB_HOSTNAME`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, `SPHINX_HOSTNAME`,
+`SPHINX_HOSTNAME_READONLY`, `$memcached_server`, and in `piler.conf` the keys its
+own header lists.
+
+Everything else is yours, including `RT`, `SPHINX_MAIN_INDEX`,
+`MEMCACHED_ENABLED`, `RELOAD_COMMAND` and the binary paths: the container only
+supplies those when the file does not already state them.
+
 ## Uninstall
 
 To uninstall the instance:
