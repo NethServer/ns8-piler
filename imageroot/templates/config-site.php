@@ -1,4 +1,8 @@
 <?php
+// Absent on purpose: the container writes DB_HOSTNAME, DB_DATABASE, DB_USERNAME,
+// DB_PASSWORD, SPHINX_HOSTNAME, SPHINX_HOSTNAME_READONLY and $memcached_server
+// from --env on every start. Everything below is ours, .local copies included.
+
 define('SITE_NAME_CONST', 'SITE_NAME');
 
 $config[SITE_NAME_CONST] = '{{host}}';
@@ -16,13 +20,8 @@ $config['SMARTHOST_PASSWORD'] = '';
 $config['DECRYPT_BINARY'] = '/usr/bin/pilerget';
 $config['DECRYPT_ATTACHMENT_BINARY'] = '/usr/bin/pileraget';
 $config['PILER_BINARY'] = '/usr/sbin/piler';
-$config['DB_HOSTNAME'] = '127.0.0.1';
-$config['DB_PASSWORD'] = 'piler';
-$config['DB_DATABASE'] = 'piler';
-$config['DB_USERNAME'] = 'piler';
 
 $config['MEMCACHED_ENABLED'] = 1;
-$memcached_server = ['127.0.0.1', 11211];
 
 $config['ENABLE_IMAP_AUTH'] = 0;
 $config['RESTORE_OVER_IMAP'] = 0;
@@ -36,8 +35,6 @@ $config['CAPTCHA_FAILED_LOGIN_COUNT'] = 0;
 
 $config['SPHINX_DRIVER'] = 'sphinx';
 $config['SPHINX_DATABASE'] = '';
-$config['SPHINX_HOSTNAME'] = '127.0.0.1:9306';
-$config['SPHINX_HOSTNAME_READONLY'] = '127.0.0.1:9307';
 $config['SPHINX_MAIN_INDEX'] = 'piler1';
 $config['RT'] = 1;
 

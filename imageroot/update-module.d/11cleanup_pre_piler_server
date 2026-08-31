@@ -1,0 +1,34 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+set -e
+
+# Files the current image never creates and nothing reads: no indexer is
+# installed and rc.searchd is never started. manticore.conf is the reason to
+# bother - it holds the database password at mode 644, in a backed-up volume.
+stale="MANTICORE manticore.conf manticore.conf.dist sphinx.conf.dist config-site.dist.php piler.conf.dist piler-nginx.conf.dist"
+
+# "None" only when the previous build had no piler-server image, so this runs on
+# the one upgrade that leaves those files behind.
+if [ "${PREV_PILER_SERVER_IMAGE:-}" != "None" ]; then
+    echo "not an upgrade from a pre-piler-server build, nothing to clean up" >&2
+    exit 0
+fi
+
+if ! systemctl is-active --user --quiet piler-app; then
+    echo "piler-app is not running, skipping the cleanup" >&2
+    exit 0
+fi
+
+found=$(podman exec piler-app sh -c "cd /etc/piler && ls -1 ${stale} 2>/dev/null" || true)
+
+if [ -z "${found}" ]; then
+    echo "no unmanaged config files left in /etc/piler" >&2
+else
+    echo "Removing config files this image no longer manages:" >&2
+    echo "${found}" | sed 's/^/  /' >&2
+    podman exec piler-app sh -c "cd /etc/piler && rm -f ${stale}"
+fi
