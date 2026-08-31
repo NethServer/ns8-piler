@@ -77,12 +77,16 @@ The container writes some keys itself, on every start, from the `--env` values i
 matching `--env` instead:
 
 `DB_HOSTNAME`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, `SPHINX_HOSTNAME`,
-`SPHINX_HOSTNAME_READONLY`, `$memcached_server`, and in `piler.conf` the keys its
-own header lists.
+`SPHINX_HOSTNAME_READONLY`, `$memcached_server`, `RT`, and in `piler.conf` the
+keys its own header lists.
 
-Everything else is yours, including `RT`, `SPHINX_MAIN_INDEX`,
-`MEMCACHED_ENABLED`, `RELOAD_COMMAND` and the binary paths: the container only
-supplies those when the file does not already state them.
+`RT` is there because manticore runs in its own container and the image ships no
+`indexer`, so real-time indexing is the only mode it can do. Nothing to set,
+nothing to remember.
+
+Everything else is yours, including `SPHINX_MAIN_INDEX`, `MEMCACHED_ENABLED`,
+`RELOAD_COMMAND` and the binary paths: the container supplies those only when the
+file does not already state them.
 
 ## Uninstall
 
