@@ -6,13 +6,11 @@
 #
 set -e
 
-# Files the current image never creates and nothing reads: no indexer is
-# installed and rc.searchd is never started. manticore.conf is the reason to
-# bother - it holds the database password at mode 644, in a backed-up volume.
+# Nothing reads these. manticore.conf is the reason to bother: it holds the
+# database password at mode 644, in a backed-up volume.
 stale="MANTICORE manticore.conf manticore.conf.dist sphinx.conf.dist config-site.dist.php piler.conf.dist piler-nginx.conf.dist"
 
-# "None" only when the previous build had no piler-server image, so this runs on
-# the one upgrade that leaves those files behind.
+# "None" only for a build predating piler-server, so this runs once.
 if [ "${PREV_PILER_SERVER_IMAGE:-}" != "None" ]; then
     echo "not an upgrade from a pre-piler-server build, nothing to clean up" >&2
     exit 0

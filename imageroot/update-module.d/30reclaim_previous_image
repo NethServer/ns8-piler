@@ -6,14 +6,9 @@
 #
 set -e
 
-# The old label named the upstream image in PILER_IMAGE; the unit now reads
-# PILER_SERVER_IMAGE. update-module never removes a variable, so this one
-# survives pointing at the image nobody runs, and nothing prunes it.
-#
-# Ordered after 20restart on purpose: before it, piler-app is still the old
-# container on that image and rmi refuses. No -f, so it refuses rather than
-# pulling an image out from under a container, and the variable is kept when it
-# does - it is the only record of what to reclaim.
+# update-module never removes a variable, so PILER_IMAGE survives naming the
+# image nobody runs. Ordered after 20restart: before it the old container still
+# holds that image and rmi refuses.
 if [ "${PREV_PILER_SERVER_IMAGE:-}" != "None" ] || [ -z "${PILER_IMAGE:-}" ]; then
     exit 0
 fi

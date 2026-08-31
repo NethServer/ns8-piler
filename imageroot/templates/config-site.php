@@ -1,7 +1,6 @@
 <?php
-// Absent on purpose: the container writes DB_HOSTNAME, DB_DATABASE, DB_USERNAME,
-// DB_PASSWORD, SPHINX_HOSTNAME, SPHINX_HOSTNAME_READONLY and $memcached_server
-// from --env on every start. Everything below is ours, .local copies included.
+// Written by the container from --env, so absent here: DB_HOSTNAME, DB_DATABASE,
+// DB_USERNAME, DB_PASSWORD, SPHINX_HOSTNAME*, $memcached_server, RT.
 
 define('SITE_NAME_CONST', 'SITE_NAME');
 
@@ -36,7 +35,6 @@ $config['CAPTCHA_FAILED_LOGIN_COUNT'] = 0;
 $config['SPHINX_DRIVER'] = 'sphinx';
 $config['SPHINX_DATABASE'] = '';
 $config['SPHINX_MAIN_INDEX'] = 'piler1';
-$config['RT'] = 1;
 
 # Same unprivileged piler uid runs php-fpm and the daemon, so reload directly
 # via the init script - no sudo/systemctl (avoids jsuto/piler#479).
