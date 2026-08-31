@@ -29,9 +29,13 @@ ExecStart=/usr/bin/podman run --conmon-pidfile %t/piler-app.pid \
     --env MYSQL_USER=piler \
     --env MYSQL_PASSWORD=piler \
     --env MYSQL_HOSTNAME=127.0.0.1 \
+    --env MYSQL_PORT=3306 \
     --env PILER_HOSTNAME=${TRAEFIK_HOST} \
     --env MEMCACHED_HOSTNAME=127.0.0.1 \
     --env MANTICORE_HOSTNAME=127.0.0.1 \
+    --env MANTICORE_PORT=9306 \
+    --env MANTICORE_PORT_READONLY=9307 \
+    --env MEMCACHED_PORT=11211 \
     --env RT=1 \
     --image-volume=ignore \
     ${PILER_SERVER_IMAGE}
