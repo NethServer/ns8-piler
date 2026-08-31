@@ -25,7 +25,7 @@ if ! buildah containers --format "{{.ContainerName}}" | grep -q nodebuilder-pile
 fi
 
 echo "Build static UI files with node..."
-buildah run --env="NODE_OPTIONS=--openssl-legacy-provider" nodebuilder-piler sh -c "cd /usr/src/ui && yarn install && yarn build"
+buildah run --env="NODE_OPTIONS=--openssl-legacy-provider" nodebuilder-piler sh -c "cd /usr/src/ui && corepack enable && yarn install && yarn build"
 
 # Add imageroot directory to the container image
 buildah add "${container}" imageroot /imageroot
@@ -36,8 +36,8 @@ buildah config --entrypoint=/ \
     --label="org.nethserver.tcp-ports-demand=2" \
     --label="org.nethserver.volumes=piler_store" \
     --label="org.nethserver.rootfull=0" \
-    --label="org.nethserver.min-core=3.12.4-0" \
-    --label="org.nethserver.images=ghcr.io/nethserver/piler-server:latest-a48c767 docker.io/mariadb:10.11.18 docker.io/memcached:1.6.45-alpine docker.io/manticoresearch/manticore:14.1.0" \
+    --label="org.nethserver.min-core=3.20.1" \
+    --label="org.nethserver.images=ghcr.io/nethserver/piler-server:latest-a48c767 docker.io/mariadb:10.11.19 docker.io/memcached:1.6.45-alpine docker.io/manticoresearch/manticore:14.1.0" \
     "${container}"
 # Commit the image
 buildah commit "${container}" "${repobase}/${reponame}"

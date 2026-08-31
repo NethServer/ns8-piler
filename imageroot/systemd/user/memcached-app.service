@@ -10,14 +10,14 @@ After=piler.service
 
 [Service]
 Environment=PODMAN_SYSTEMD_UNIT=%n
-EnvironmentFile=%S/state/environment
+EnvironmentFile=%E/state/environment
 Restart=always
 TimeoutStopSec=70
 ExecStartPre=/bin/rm -f %t/memcached-app.pid %t/memcached-app.ctr-id
 ExecStart=/usr/bin/podman run --conmon-pidfile %t/memcached-app.pid \
     --cidfile %t/memcached-app.ctr-id --cgroups=no-conmon \
     --pod-id-file %t/piler.pod-id --replace -d --name memcached-app \
-    --env-file=%S/state/environment \
+    --env-file=%E/state/environment \
     ${MEMCACHED_IMAGE} \
     memcached -m 64
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/memcached-app.ctr-id -t 10
