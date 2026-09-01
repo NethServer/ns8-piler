@@ -6,11 +6,9 @@
 #
 set -e
 
-# Only a build predating piler-server left an upstream image behind.
-[ "${PREV_PILER_SERVER_IMAGE:-}" = "None" ] || exit 0
-
-# PILER_IMAGE named it. update-module never removes a variable, so it survives;
-# this script clears it once the image is gone, so an empty one means done.
+# Only an older layout ran an upstream image, and PILER_IMAGE named it.
+# update-module never removes a variable, so it survives; this script clears it
+# once the image is gone, so an empty one means there is nothing to reclaim.
 [ -n "${PILER_IMAGE:-}" ] || exit 0
 
 echo "Reclaiming the image this module no longer runs: ${PILER_IMAGE}" >&2

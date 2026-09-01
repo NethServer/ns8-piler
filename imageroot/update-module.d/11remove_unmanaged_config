@@ -1,0 +1,33 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+set -e
+
+# Leftovers: this image keeps its own copies in /tmp/piler-conf. manticore.conf
+# is the one that matters, holding the database password at mode 755.
+stale="MANTICORE manticore.conf manticore.conf.dist sphinx.conf.dist config-site.dist.php piler.conf.dist piler-nginx.conf.dist"
+
+if ! systemctl is-active --user --quiet piler-app; then
+    echo "piler-app is not running, skipping the cleanup" >&2
+    exit 0
+fi
+
+# Not ls: given a directory it lists the contents, not the name.
+list_stale() {
+    podman exec piler-app sh -c 'cd /etc/piler || exit 0
+        for f in '"${stale}"'; do
+            if [ -f "${f}" ]; then printf "%s\n" "${f}"; fi
+        done
+        exit 0' # never fail the substitution under set -e
+}
+
+found=$(list_stale)
+[ -n "${found}" ] || exit 0
+
+echo "Removing config files this image no longer manages:" >&2
+echo "${found}" | sed 's/^/  /' >&2
+echo "${found}" | podman exec -i piler-app sh -c 'cd /etc/piler && xargs -r rm -f'

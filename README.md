@@ -15,6 +15,11 @@ Output example:
 
     {"module_id": "piler1", "image_name": "piler", "image_url": "ghcr.io/nethserver/piler:latest"}
 
+## Update
+
+Updates start from 1.2.3. The `org.nethserver.min-from` label keeps this version
+from being offered to an older instance, so update that one to 1.2.3 first.
+
 ## Configure
 
 Let's assume that the piler instance is named `piler1`.
