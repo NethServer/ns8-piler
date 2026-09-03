@@ -15,6 +15,11 @@ Output example:
 
     {"module_id": "piler1", "image_name": "piler", "image_url": "ghcr.io/nethserver/piler:latest"}
 
+## Update
+
+Updates start from 1.2.3. The `org.nethserver.min-from` label keeps this version
+from being offered to an older instance, so update that one to 1.2.3 first.
+
 ## Configure
 
 Let's assume that the piler instance is named `piler1`.
@@ -71,6 +76,22 @@ nano template/config-site.php.local
 # restart the service
 systemctl restart --user piler.service
 ```
+
+The container writes some keys itself, on every start, from the `--env` values in
+`piler-app.service`. Editing these in a `.local` copy has no effect; change the
+matching `--env` instead:
+
+`DB_HOSTNAME`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, `SPHINX_HOSTNAME`,
+`SPHINX_HOSTNAME_READONLY`, `$memcached_server`, `RT`, and in `piler.conf` the
+keys its own header lists.
+
+`RT` is there because manticore runs in its own container and the image ships no
+`indexer`, so real-time indexing is the only mode it can do. Nothing to set,
+nothing to remember.
+
+Everything else is yours, including `SPHINX_MAIN_INDEX`, `MEMCACHED_ENABLED`,
+`RELOAD_COMMAND` and the binary paths: the container supplies those only when the
+file does not already state them.
 
 ## Uninstall
 

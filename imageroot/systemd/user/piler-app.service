@@ -16,27 +16,32 @@ Restart=always
 TimeoutStopSec=70
 ExecStartPre=/bin/mkdir -vp piler_etc templates
 ExecStartPre=/usr/local/bin/runagent expand-configuration
+ExecStartPre=/usr/local/bin/runagent copy-piler-config
 ExecStartPre=/bin/rm -f %t/piler-app.pid %t/piler-app.ctr-id
 ExecStart=/usr/bin/podman run --conmon-pidfile %t/piler-app.pid \
     --cidfile %t/piler-app.ctr-id --cgroups=no-conmon \
     --pod-id-file %t/piler.pod-id --replace -d --name  piler-app \
-    --volume ./piler_etc/config-site.php:/etc/piler/config-site.php:z \
-    --volume ./piler_etc/piler.conf:/etc/piler/piler.conf:z \
+    --cap-add=NET_BIND_SERVICE \
     --volume piler_etc:/etc/piler:z \
     --volume piler_store:/var/piler/store \
+    --volume piler_spool:/var/piler/tmp \
     --env MYSQL_DATABASE=piler \
     --env MYSQL_USER=piler \
     --env MYSQL_PASSWORD=piler \
     --env MYSQL_HOSTNAME=127.0.0.1 \
+    --env MYSQL_PORT=3306 \
     --env PILER_HOSTNAME=${TRAEFIK_HOST} \
     --env MEMCACHED_HOSTNAME=127.0.0.1 \
     --env MANTICORE_HOSTNAME=127.0.0.1 \
-    --env RT=1 \
+    --env MANTICORE_PORT=9306 \
+    --env MANTICORE_PORT_READONLY=9307 \
+    --env MEMCACHED_PORT=11211 \
     --image-volume=ignore \
-    ${PILER_IMAGE}
+    ${PILER_SERVER_IMAGE}
 ExecStartPost=runagent wait-after-piler
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/piler-app.ctr-id -t 10
 ExecReload=/usr/local/bin/runagent expand-configuration
+ExecReload=/usr/local/bin/runagent copy-piler-config
 ExecReload=/usr/bin/podman kill -s HUP piler-app
 SyslogIdentifier=%u
 ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/piler-app.ctr-id

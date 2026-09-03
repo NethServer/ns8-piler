@@ -37,7 +37,8 @@ buildah config --entrypoint=/ \
     --label="org.nethserver.volumes=piler_store" \
     --label="org.nethserver.rootfull=0" \
     --label="org.nethserver.min-core=3.20.1" \
-    --label="org.nethserver.images=docker.io/sutoj/piler:1.4.8 docker.io/mariadb:10.11.19 docker.io/memcached:1.6.45-alpine docker.io/manticoresearch/manticore:10.1.0" \
+    --label="org.nethserver.min-from=1.2.3" \
+    --label="org.nethserver.images=ghcr.io/nethserver/piler-server:latest-a01e8a7 docker.io/mariadb:10.11.19 docker.io/memcached:1.6.45-alpine docker.io/manticoresearch/manticore:14.1.0" \
     "${container}"
 # Commit the image
 buildah commit "${container}" "${repobase}/${reponame}"

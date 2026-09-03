@@ -1,4 +1,7 @@
 <?php
+// Written by the container from --env, so absent here: DB_HOSTNAME, DB_DATABASE,
+// DB_USERNAME, DB_PASSWORD, SPHINX_HOSTNAME*, $memcached_server, RT.
+
 define('SITE_NAME_CONST', 'SITE_NAME');
 
 $config[SITE_NAME_CONST] = '{{host}}';
@@ -16,13 +19,8 @@ $config['SMARTHOST_PASSWORD'] = '';
 $config['DECRYPT_BINARY'] = '/usr/bin/pilerget';
 $config['DECRYPT_ATTACHMENT_BINARY'] = '/usr/bin/pileraget';
 $config['PILER_BINARY'] = '/usr/sbin/piler';
-$config['DB_HOSTNAME'] = '127.0.0.1';
-$config['DB_PASSWORD'] = 'piler';
-$config['DB_DATABASE'] = 'piler';
-$config['DB_USERNAME'] = 'piler';
 
 $config['MEMCACHED_ENABLED'] = 1;
-$memcached_server = ['127.0.0.1', 11211];
 
 $config['ENABLE_IMAP_AUTH'] = 0;
 $config['RESTORE_OVER_IMAP'] = 0;
@@ -36,7 +34,8 @@ $config['CAPTCHA_FAILED_LOGIN_COUNT'] = 0;
 
 $config['SPHINX_DRIVER'] = 'sphinx';
 $config['SPHINX_DATABASE'] = '';
-$config['SPHINX_HOSTNAME'] = '127.0.0.1:9306';
-$config['SPHINX_HOSTNAME_READONLY'] = '127.0.0.1:9307';
 $config['SPHINX_MAIN_INDEX'] = 'piler1';
-$config['RT'] = 1;
+
+# Same unprivileged piler uid runs php-fpm and the daemon, so reload directly
+# via the init script - no sudo/systemctl (avoids jsuto/piler#479).
+$config['RELOAD_COMMAND'] = '/etc/init.d/rc.piler reload';
