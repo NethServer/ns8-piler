@@ -1,0 +1,594 @@
+name: validate
+
+on:
+  workflow_run:
+    workflows: [build]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to validate (a commit sha or 'latest')"
+        required: false
+        default: latest
+
+jobs:
+  validate:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # This ref is untrusted (the branch/PR that triggered the build);
+          # don't leave the GITHUB_TOKEN in .git/config where the compose
+          # stack we run from that ref could read it.
+          persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+
+      - name: Compute image reference
+        env:
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          MANUAL_TAG: ${{ inputs.image_tag }}
+        run: |
+          REPOBASE="ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            if [ "${HEAD_BRANCH}" = "${{ github.event.repository.default_branch }}" ]; then
+              tag="latest"
+            else
+              tag=$(echo "${HEAD_BRANCH}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+|-+$//g')
+            fi
+            image_tag="${tag}-${SHA:0:7}"
+          else
+            image_tag="${MANUAL_TAG}"
+          fi
+
+          image="${REPOBASE}/piler-server:${image_tag}"
+
+          # Every later step that recreates a container resolves PILER_IMAGE
+          # again; without this the compose default silently wins and we would
+          # validate a different image than the one we pulled.
+          echo "PILER_IMAGE=${image}" >> "$GITHUB_ENV"
+
+          {
+            echo "### Image tested"
+            echo '```'
+            echo "${image}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Start the stack
+        run: |
+          docker pull "${PILER_IMAGE}"
+          docker compose up -d
+
+      - name: Wait for piler to be ready
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost/ || true)
+            if [ "${code}" = "200" ]; then
+              echo "piler answered HTTP 200 after ${i} tries"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "piler never answered HTTP 200" >&2
+          docker compose logs
+          exit 1
+
+      - name: Check internal services are healthy
+        run: |
+          for i in $(seq 1 30); do
+            failed=0
+            summary=""
+            while read -r c; do
+              name=$(echo "$c" | jq -r '.Name')
+              state=$(echo "$c" | jq -r '.State')
+              health=$(echo "$c" | jq -r '.Health')
+
+              if [ "${state}" != "running" ]; then
+                failed=1
+              elif [ "${health}" != "" ] && [ "${health}" != "healthy" ]; then
+                failed=1
+              fi
+              summary="${summary}${name}: state=${state} health=${health:-n/a}\n"
+            done < <(docker compose ps --format json)
+
+            if [ "${failed}" -eq 0 ]; then
+              printf '%b' "${summary}"
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          echo "a service never became healthy" >&2
+          printf '%b' "${summary}" >&2
+          exit 1
+
+      - name: Log in as admin and as auditor through the web UI
+        run: |
+          admin_headers=$(curl -sS -D - -o /dev/null -c /tmp/admin-cookie.txt \
+            --data-urlencode "username=admin@local" \
+            --data-urlencode "password=pilerrocks" \
+            http://localhost/login.php)
+
+          if ! echo "${admin_headers}" | grep -qi '^location:.*route=health/health'; then
+            echo "admin login did not land on the admin health page" >&2
+            echo "${admin_headers}" >&2
+            exit 1
+          fi
+          echo "admin login OK"
+
+          auditor_headers=$(curl -sS -D - -o /dev/null \
+            --data-urlencode "username=auditor@local" \
+            --data-urlencode "password=auditor" \
+            http://localhost/login.php)
+
+          if ! echo "${auditor_headers}" | grep -qi '^location:.*search.php'; then
+            echo "auditor login did not land on the search page" >&2
+            echo "${auditor_headers}" >&2
+            exit 1
+          fi
+          echo "auditor login OK"
+
+      - name: Send a test email with an attachment over SMTP and check it gets archived
+        run: |
+          boundary="ci-test-boundary"
+          {
+            echo "From: sender@example.com"
+            echo "To: admin@local"
+            echo "Subject: CI test mail"
+            echo "MIME-Version: 1.0"
+            echo "Content-Type: multipart/mixed; boundary=\"${boundary}\""
+            echo
+            echo "--${boundary}"
+            echo "Content-Type: text/plain"
+            echo
+            echo "This is a test message sent to piler via curl SMTP in CI."
+            echo
+            echo "--${boundary}"
+            echo "Content-Type: text/plain; name=\"note.txt\""
+            echo "Content-Disposition: attachment; filename=\"note.txt\""
+            echo "Content-Transfer-Encoding: base64"
+            echo
+            base64 <<< "attachment content for the CI test mail"
+            echo "--${boundary}--"
+          } > /tmp/test-mail.txt
+
+          curl -sS --url smtp://localhost:25 \
+            --mail-from "sender@example.com" \
+            --mail-rcpt "admin@local" \
+            --upload-file /tmp/test-mail.txt
+
+          sleep 3
+
+          row=$(docker compose exec -T mysql \
+            mariadb -upiler -ppiler123 piler -N -e \
+            "SELECT COUNT(*), COALESCE(SUM(attachments), 0) FROM metadata WHERE subject = 'CI test mail';")
+          count=$(echo "${row}" | cut -f1)
+          attachments=$(echo "${row}" | cut -f2)
+
+          if [ "${count}" -lt 1 ]; then
+            echo "test mail was not archived" >&2
+            docker compose logs piler
+            exit 1
+          fi
+          if [ "${attachments}" -lt 1 ]; then
+            echo "test mail was archived but its attachment was not recorded" >&2
+            docker compose logs piler
+            exit 1
+          fi
+          echo "test mail archived with ${attachments} attachment(s), ${count} row(s) found"
+
+      - name: Search for the archived mail through the web UI
+        run: |
+          for i in $(seq 1 10); do
+            results=$(curl -sS -b /tmp/admin-cookie.txt \
+              --data-urlencode "searchtype=simple" \
+              --data-urlencode "subject=CI test mail" \
+              --data-urlencode "page=0" \
+              --data-urlencode "sort=1" \
+              --data-urlencode "order=date" \
+              http://localhost/search-helper.php)
+
+            if echo "${results}" | grep -q "CI test mail"; then
+              echo "full-text search found the archived mail after ${i} tries"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "full-text search did not find the archived mail" >&2
+          exit 1
+
+      - name: Piler's own logs reach the container log
+        run: |
+          logs=$(docker compose logs piler)
+
+          # ident[pid]: is the shim's format; without it piler logs only to a
+          # syslog socket the container doesn't have, and none of this exists.
+          for pattern in \
+            'piler-smtp\[[0-9]+\]: piler-smtp .* starting' \
+            'piler\[[0-9]+\]: piler .* starting' \
+            'piler-smtp\[[0-9]+\]: received: ' \
+            'piler\[[0-9]+\]: .*status=stored'; do
+            if ! printf '%s' "${logs}" | grep -qE "${pattern}"; then
+              echo "no piler log line matching: ${pattern}" >&2
+              printf '%s' "${logs}" | tail -50 >&2
+              exit 1
+            fi
+          done
+          echo "piler and piler-smtp log lines are in the container log"
+
+      - name: Restart the stack and check the archived mail survives
+        run: |
+          docker compose restart mysql piler
+          sleep 5
+
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost/ || true)
+            if [ "${code}" = "200" ]; then
+              break
+            fi
+            sleep 2
+          done
+
+          count=$(docker compose exec -T mysql \
+            mariadb -upiler -ppiler123 piler -N -e \
+            "SELECT COUNT(*) FROM metadata WHERE subject = 'CI test mail';")
+
+          if [ "${count}" -lt 1 ]; then
+            echo "archived mail did not survive a stack restart" >&2
+            docker compose logs
+            exit 1
+          fi
+          echo "archived mail survived the restart, ${count} row(s) found"
+
+      - name: Supervisord restarts the piler daemons when they die
+        run: |
+          # piler-smtp needs up to ~60s of TIME_WAIT to clear before it rebinds.
+          wait_for_process() {
+            for i in $(seq 1 60); do
+              if docker compose exec -T piler sh -c "pgrep -x $1 >/dev/null"; then
+                echo "$1 is running again after ${i} tries"
+                return 0
+              fi
+              sleep 2
+            done
+            echo "$1 was not restarted by supervisord" >&2
+            docker compose logs piler >&2
+            return 1
+          }
+
+          # -o picks the master among the forked children, -x excludes piler-smtp.
+          docker compose exec -T piler sh -c 'kill "$(pgrep -o -x piler-smtp)"'
+          wait_for_process piler-smtp
+
+          docker compose exec -T piler sh -c 'kill "$(pgrep -o -x piler)"'
+          wait_for_process piler
+
+          # Prove the pipeline still archives after the respawn.
+          # Message-ID must be unique: piler treats a missing or repeated one as
+          # a duplicate of the mail sent earlier in this run and discards it.
+          printf 'From: sender@example.com\nTo: admin@local\nSubject: CI respawn mail\nMessage-ID: <respawn-%s@ci.example.com>\n\nsent after supervisord respawned the daemons\n' "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" > /tmp/respawn-mail.txt
+
+          for i in $(seq 1 10); do
+            if curl -sS --url smtp://localhost:25 \
+                 --mail-from "sender@example.com" \
+                 --mail-rcpt "admin@local" \
+                 --upload-file /tmp/respawn-mail.txt; then
+              break
+            fi
+            sleep 2
+          done
+
+          for i in $(seq 1 15); do
+            count=$(docker compose exec -T mysql \
+              mariadb -upiler -ppiler123 piler -N -e \
+              "SELECT COUNT(*) FROM metadata WHERE subject = 'CI respawn mail';")
+            if [ "${count}" -ge 1 ]; then
+              echo "mail sent after the respawn was archived"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "mail sent after the respawn was never archived" >&2
+          docker compose logs piler >&2
+          exit 1
+
+      - name: A graceful stop drains the spool
+        run: |
+          for n in $(seq 1 100); do
+            printf 'From: sender@example.com\nTo: admin@local\nSubject: CI drain mail\nMessage-ID: <drain-%s-%s@ci.example.com>\n\ndrain test %s\n' \
+              "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" "${n}" "${n}" > /tmp/drain-mail.txt
+            curl -sS --url smtp://localhost:25 \
+              --mail-from "sender@example.com" \
+              --mail-rcpt "admin@local" \
+              --upload-file /tmp/drain-mail.txt >/dev/null
+          done
+          echo "sent 100 mails"
+
+          docker compose stop -t 120 piler
+
+          if ! docker compose logs piler | grep -qE 'piler-run: (spool drained|giving up)'; then
+            echo "the drain never ran on stop" >&2
+            docker compose logs piler >&2
+            exit 1
+          fi
+
+          docker compose start piler
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost/ || true)
+            if [ "${code}" = "200" ]; then
+              break
+            fi
+            sleep 2
+          done
+
+          # Every mail accepted before the stop must be archived: nothing may be
+          # left in the spool, and nothing may have been lost with the container.
+          count=$(docker compose exec -T mysql \
+            mariadb -upiler -ppiler123 piler -N -e \
+            "SELECT COUNT(*) FROM metadata WHERE subject = 'CI drain mail';")
+
+          if [ "${count}" -ne 100 ]; then
+            echo "expected 100 archived mails after the drained stop, got ${count}" >&2
+            docker compose logs piler >&2
+            exit 1
+          fi
+          echo "all 100 mails archived across the drained stop"
+
+      - name: The drain waits, then gives up on a stuck spool
+        run: |
+          # The archiver empties a fresh spool in seconds, so the waiting branch
+          # only shows up if it cannot drain: freeze piler and shorten the
+          # timeout, otherwise this step would prove nothing.
+          cat > /tmp/drain-override.yml <<'YAML'
+          services:
+            piler:
+              environment:
+                - PILER_STOP_DRAIN_TIMEOUT=10
+                - PILER_STOP_DRAIN_INTERVAL=2
+          YAML
+
+          docker compose -f docker-compose.yml -f /tmp/drain-override.yml up -d --force-recreate piler
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost/ || true)
+            if [ "${code}" = "200" ]; then
+              break
+            fi
+            sleep 2
+          done
+
+          # -x excludes piler-smtp, which must stay alive to accept the mails.
+          docker compose exec -T piler sh -c 'for p in $(pgrep -x piler); do kill -STOP "$p"; done'
+
+          for n in $(seq 1 20); do
+            printf 'From: sender@example.com\nTo: admin@local\nSubject: CI spool mail\nMessage-ID: <spool-%s-%s@ci.example.com>\n\nstuck in the spool\n' \
+              "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" "${n}" > /tmp/spool-mail.txt
+            curl -sS --url smtp://localhost:25 \
+              --mail-from "sender@example.com" \
+              --mail-rcpt "admin@local" \
+              --upload-file /tmp/spool-mail.txt >/dev/null
+          done
+
+          left=$(docker compose exec -T piler sh -c 'find /var/piler/tmp -type f | wc -l')
+          if [ "${left}" -lt 1 ]; then
+            echo "the spool is empty with the archiver frozen, nothing to drain" >&2
+            exit 1
+          fi
+          echo "${left} file(s) stuck in the spool"
+
+          docker compose stop -t 60 piler
+
+          logs=$(docker compose logs piler)
+          for pattern in 'piler-run: draining spool, [0-9]+ file\(s\) left' 'piler-run: giving up with [0-9]+ file\(s\) left after [0-9]+s'; do
+            if ! printf '%s' "${logs}" | grep -qE "${pattern}"; then
+              echo "no drain log line matching: ${pattern}" >&2
+              printf '%s' "${logs}" | tail -30 >&2
+              exit 1
+            fi
+          done
+          echo "the drain waited, then gave up as expected"
+
+      - name: A non-empty spool survives a container recreation
+        run: |
+          # The previous step left mail in the spool. On the image layer it would
+          # be gone with the container; on a volume it must come back.
+          docker compose rm -f piler
+          docker compose up -d piler
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost/ || true)
+            if [ "${code}" = "200" ]; then
+              break
+            fi
+            sleep 2
+          done
+
+          for i in $(seq 1 20); do
+            count=$(docker compose exec -T mysql \
+              mariadb -upiler -ppiler123 piler -N -e \
+              "SELECT COUNT(*) FROM metadata WHERE subject = 'CI spool mail';")
+            if [ "${count}" -eq 20 ]; then
+              echo "all 20 spooled mails survived the recreation and were archived"
+              exit 0
+            fi
+            sleep 3
+          done
+
+          echo "expected 20 archived mails from the spool, got ${count}" >&2
+          docker compose logs piler >&2
+          exit 1
+
+      - name: Restarting neither grows nor breaks config-site.php
+        run: |
+          # If the delete ever stops matching, the file grows and duplicate
+          # assignments hide which one PHP uses.
+          php_lint() {
+            docker compose exec -T piler php -l /etc/piler/config-site.php
+          }
+          marker_count() {
+            docker compose exec -T piler \
+              grep -c '^# generated by entrypoint' /etc/piler/config-site.php
+          }
+          line_count() {
+            docker compose exec -T piler sh -c 'wc -l < /etc/piler/config-site.php'
+          }
+
+          php_lint
+          before_lines=$(line_count)
+          echo "config-site.php starts at ${before_lines} lines"
+
+          for i in 1 2; do
+            docker compose restart piler
+            for j in $(seq 1 30); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost/ || true)
+              if [ "${code}" = "200" ]; then
+                break
+              fi
+              sleep 2
+            done
+          done
+
+          php_lint
+          markers=$(marker_count | tr -d '\r')
+          after_lines=$(line_count | tr -d '\r')
+
+          if [ "${markers}" -ne 1 ]; then
+            echo "expected exactly 1 generated-block marker, found ${markers}" >&2
+            docker compose exec -T piler cat /etc/piler/config-site.php >&2
+            exit 1
+          fi
+
+          if [ "${after_lines}" -ne "${before_lines}" ]; then
+            echo "config-site.php grew from ${before_lines} to ${after_lines} lines" >&2
+            docker compose exec -T piler cat /etc/piler/config-site.php >&2
+            exit 1
+          fi
+          echo "config-site.php still valid PHP, 1 marker, ${after_lines} lines after 2 restarts"
+
+      - name: A rotated database password reaches the daemon and the web UI
+        run: |
+          # Both sed delimiters, the replacement ampersand, and '#', which
+          # MariaDB reads as a comment start in .my.cnf. Quotes and backslashes
+          # are covered offline.
+          new_pass='pW&y%z/1-x#tail'
+
+          # SET PASSWORD needs no extra privilege; ALTER USER wants CREATE USER.
+          docker compose exec -T mysql \
+            mariadb -upiler -ppiler123 -e \
+            "SET PASSWORD = PASSWORD('${new_pass}')"
+
+          cat > /tmp/rotate-override.yml <<YAML
+          services:
+            piler:
+              environment:
+                - MYSQL_PASSWORD=${new_pass}
+          YAML
+
+          docker compose -f docker-compose.yml -f /tmp/rotate-override.yml \
+            up -d --force-recreate piler
+
+          for i in $(seq 1 45); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost/ || true)
+            if [ "${code}" = "200" ]; then
+              break
+            fi
+            sleep 2
+          done
+
+          # The UI reads config-site.php, the archiver piler.conf: check both.
+          headers=$(curl -sS -D - -o /dev/null \
+            --data-urlencode "username=admin@local" \
+            --data-urlencode "password=pilerrocks" \
+            http://localhost/login.php)
+
+          if ! echo "${headers}" | grep -qi '^location:.*route=health/health'; then
+            echo "the web UI cannot reach the database after the password rotation" >&2
+            echo "${headers}" >&2
+            docker compose logs piler >&2
+            exit 1
+          fi
+          echo "web UI OK after the rotation"
+
+          printf 'From: sender@example.com\nTo: admin@local\nSubject: CI rotated mail\nMessage-ID: <rotated-%s@ci.example.com>\n\nafter the password rotation\n' \
+            "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" > /tmp/rotated-mail.txt
+
+          curl -sS --url smtp://localhost:25 \
+            --mail-from "sender@example.com" \
+            --mail-rcpt "admin@local" \
+            --upload-file /tmp/rotated-mail.txt
+
+          archived=0
+          for i in $(seq 1 15); do
+            count=$(docker compose exec -T mysql \
+              mariadb -upiler -p"${new_pass}" piler -N -e \
+              "SELECT COUNT(*) FROM metadata WHERE subject = 'CI rotated mail';")
+            if [ "${count}" -ge 1 ]; then
+              archived=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "${archived}" -ne 1 ]; then
+            echo "the archiver did not store mail after the password rotation" >&2
+            docker compose logs piler >&2
+            exit 1
+          fi
+          echo "archiver OK after the rotation"
+
+          # The later steps and the teardown expect the demo password.
+          docker compose exec -T mysql \
+            mariadb -upiler -p"${new_pass}" -e \
+            "SET PASSWORD = PASSWORD('piler123')"
+          docker compose up -d --force-recreate piler
+          for i in $(seq 1 45); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost/ || true)
+            if [ "${code}" = "200" ]; then
+              break
+            fi
+            sleep 2
+          done
+
+      # Destructive: leaves piler down, so keep it last before teardown.
+      - name: exit-on-fatal brings the container down on a FATAL service
+        run: |
+          before=$(docker inspect -f '{{.State.Status}}' piler)
+          echo "piler state before: ${before}"
+
+          # Break nginx's config so supervisord's restart of it fails, then
+          # kill the running master. The failed respawns exhaust startretries,
+          # nginx goes FATAL, and the exit-on-fatal listener kills pid 1 so the
+          # whole container goes down (piler has no restart policy here).
+          # Run as piler, not root: the container drops CAP_KILL (cap_drop:
+          # ALL), so only the process owner can signal nginx - and piler owns
+          # both the nginx master and its config file.
+          docker compose exec -T piler sh -c 'echo "invalid_directive_forced_by_ci;" >> /etc/piler/piler-nginx.conf'
+          docker compose exec -T piler sh -c 'kill "$(pgrep -o -x nginx)"'
+
+          for i in $(seq 1 45); do
+            state=$(docker inspect -f '{{.State.Status}}' piler 2>/dev/null || echo gone)
+            if [ "${state}" != "running" ]; then
+              echo "piler left the running state (${state}) after a FATAL service - exit-on-fatal fired"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "piler stayed running despite a FATAL service - exit-on-fatal did not fire" >&2
+          docker compose logs piler >&2 || true
+          exit 1
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down the stack
+        if: always()
+        run: docker compose down -v
