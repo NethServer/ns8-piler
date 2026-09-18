@@ -55,9 +55,17 @@ jobs:
           REPOBASE="ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
           image="${REPOBASE}/piler-server"
 
-          tag=$(echo "${REF_NAME}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+|-+$//g')
+          if [ "${REF_NAME}" = "${DEFAULT_BRANCH}" ]; then
+            tag="latest"
+          else
+            tag=$(echo "${REF_NAME}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+|-+$//g')
+          fi
+          short_sha="${SHA:0:7}"
+          sha_tag="${tag}-${short_sha}"
 
-          tags=("${image}:${tag}")
+          # sha_tag is what validate.yml pins to, so it always tests the exact
+          # commit it checked out even if tag gets overwritten by a later push.
+          tags=("${image}:${tag}" "${image}:${sha_tag}")
           # Only push the derived version tag from main or from a git tag ref -
           # a feature-branch build must never overwrite the tag that installed
           # clusters pull.
@@ -73,7 +81,7 @@ jobs:
             --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             "${args[@]}" \
             --push piler-server
-          echo "image=${image}:${tag}" >> "$GITHUB_OUTPUT"
+          echo "image=${image}:${sha_tag}" >> "$GITHUB_OUTPUT"
 
           {
             echo "### piler-server image"
