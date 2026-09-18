@@ -1,8 +1,13 @@
 # ns8-piler
 
 Start and configure a piler instance.
-- The module uses [piler Docker Image](https://hub.docker.com/r/sutoj/piler).
-- The code source and the link to raise issues to the project developer can be found at [github piler](https://github.com/jsuto/piler)
+- The module runs [piler](https://github.com/jsuto/piler) inside a container
+  image this repo builds itself, `piler-server/` - see
+  [piler-server/README.md](piler-server/README.md) for the image (rootless
+  design, environment variables, CI). `build-images.sh` reads the image's
+  version tag straight from `piler-server/Dockerfile` via
+  `piler-server/dockerfile-vars.sh`, so the two can never drift apart.
+- To raise an issue against piler itself, use [github piler](https://github.com/jsuto/piler).
 
 ## Install
 
@@ -98,6 +103,15 @@ file does not already state them.
 To uninstall the instance:
 
     remove-module --no-preserve piler1
+
+## CI
+
+This repository publishes two images from one pipeline: `build-piler-server.yml`
+builds `ghcr.io/nethserver/piler-server` from `piler-server/Dockerfile`, then
+`publish-images.yml` builds the module image `ghcr.io/nethserver/piler`, whose
+`org.nethserver.images` label names the tag the first job just pushed. See
+[piler-server/README.md](piler-server/README.md#ci) for the piler-server-specific
+workflows (lint, the compose end-to-end suite, and the Renovate checksum fill-in).
 
 ## Running tests locally
 
