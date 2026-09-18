@@ -5,7 +5,7 @@ ARG PILER_VERSION=1.4.9
 # amd64-only image. sha256 of the amd64 .deb - on a version bump, copy the new
 # asset digest from the release page (each asset shows a sha256):
 #   https://github.com/jsuto/piler/releases  (open the piler-<version> tag)
-ARG PILER_SHA256=e6f9e5e7bf307f024ea248352b93d5cad0925f0f998b2902e0e64ce0db51859a
+ARG PILER_SHA256=0000000000000000000000000000000000000000000000000000000000000000
 ARG SUPERCRONIC_VERSION=v0.2.49
 # sha256 of the amd64 binary, from the release page:
 #   https://github.com/aptible/supercronic/releases  (open the <version> tag)

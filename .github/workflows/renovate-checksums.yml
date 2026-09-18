@@ -13,7 +13,7 @@ name: renovate-checksums
 # risk.
 on:
   pull_request:
-    branches: [main]
+    branches: [merge-piler-server] # TEST ONLY, revert before merging
     paths:
       - piler-server/Dockerfile
 
