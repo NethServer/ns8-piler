@@ -51,9 +51,16 @@ Only the files whose purpose is not obvious from the name:
 - `config/syslog-to-stderr.c` — the `LD_PRELOAD` shim, see below.
 - `config/exit-on-fatal-listener.py` — the `exit-on-fatal` listener.
 - `dockerfile-vars.sh` — reads `PILER_VERSION`/`BASE_IMAGE` back out of the
-  Dockerfile, shared by `build-images.sh` and `release-tag.sh`.
-- `release-tag.sh` — computes, creates and pushes the release tag.
+  Dockerfile and derives `piler_server_tag`; sourced by this directory's own
+  `build-images.sh` and by the module's `../build-images.sh`, so the image tag
+  the module labels can never drift from what this Dockerfile actually builds.
 - `.hadolint.yaml` — Dockerfile lint policy, with the reason for each ignore.
+
+The CI workflows that build, lint and validate this image live at the repo
+root's `.github/workflows/` (`build-piler-server.yml`, `lint-piler-server.yml`,
+`validate-piler-server.yml`, `renovate-checksums.yml`) — GitHub only reads
+workflows from there, not from a subdirectory. See the root
+[README.md](../README.md#ci) for how they fit with the module's own CI.
 
 ## Quick start
 
@@ -290,24 +297,14 @@ to be changed from the web UI. Both are only worth doing on a stack that has
 not been initialised yet, since the hash is written when the schema is
 created.
 
-This repository builds and validates the image standalone, with no
-orchestration or upgrade logic. That is what
-[NethServer/ns8-piler](https://github.com/NethServer/ns8-piler) provides.
+This directory builds and validates the image; the orchestration and upgrade
+logic around it is the rest of this repository, the
+[ns8-piler module](https://github.com/NethServer/ns8-piler).
 
-## Release
-
-A release is a git tag `v<PILER_VERSION>-<BASE_IMAGE_TAG>`, e.g.
-`v1.4.9-resolute-20260610`. Pushing that tag triggers `release.yml`; pushing to
-`main` does not.
-
-```sh
-./release-tag.sh --show          # the tag your Dockerfile would produce
-./release-tag.sh --tag           # create it on HEAD
-./release-tag.sh --tag --push    # create and push, triggering release.yml
-```
-
-`release-tag.sh` reads `PILER_VERSION`/`BASE_IMAGE` the same way
-`build-images.sh` does, so the tag always matches what the Dockerfile builds.
+The image tag is `<PILER_VERSION>-<BASE_IMAGE_TAG's date>`, e.g.
+`1.4.9-20260610`, computed by `dockerfile-vars.sh`. `build-piler-server.yml`
+(root `.github/workflows/`) pushes it on every push to `main` and on every git
+tag, so there is no separate release step to run by hand.
 
 ## Debugging
 
@@ -333,26 +330,35 @@ socket restricted to the piler user (`chmod 0700`), not a network listener.
 
 ## CI
 
+These workflows live at the repo root's `.github/workflows/`, not here (GitHub
+only reads workflows from there):
+
 | Workflow | Trigger | Does |
 | --- | --- | --- |
-| `lint.yml` | every push and PR, forks included | shellcheck, hadolint, and `tests/entrypoint-config-test.sh`. No credentials, no build, under a minute |
-| `build.yml` | push to `main`, internal PRs | builds and pushes. Fork PRs are skipped so untrusted code never runs in CI |
-| `validate.yml` | `build.yml` completing, or `workflow_dispatch` | starts the full compose stack and exercises it |
-| `release.yml` | pushing a `v*` tag | checks the tag matches the Dockerfile, then builds and pushes it with refreshed `latest`/`<base_image_tag>` |
+| `lint-piler-server.yml` | push/PR touching `piler-server/**`, forks included | shellcheck, hadolint, and `tests/entrypoint-config-test.sh`. No credentials, no build, under a minute |
+| `build-piler-server.yml` | called from `publish-images.yml` | builds and pushes, before the module image is built so its label can reference the tag this run just pushed |
+| `validate-piler-server.yml` | `publish-images.yml` ("Publish images") completing, or `workflow_dispatch` | starts the full compose stack and exercises it |
+| `renovate-checksums.yml` | PR from a `renovate-*` branch touching `piler-server/Dockerfile` | resolves and commits `PILER_SHA256`/`SUPERCRONIC_SHA256` for the version Renovate just bumped |
 
-`build.yml` tags `latest` only on the default branch, otherwise a sanitized
-branch name; every build also gets an immutable sha tag, which is what
-`validate.yml` pins to.
+`build-piler-server.yml` tags `latest` only on the default branch, otherwise a
+sanitized branch name; every build also gets an immutable sha tag, which is
+what `validate-piler-server.yml` pins to. It also pushes the version tag
+(`<PILER_VERSION>-<BASE_IMAGE_TAG's date>`) from `main` or a git tag ref -
+never from a feature branch, so a stale branch build can't overwrite the tag
+installed clusters pull.
 
-`validate.yml` logs in as admin and auditor, sends a real mail and checks it is
-archived and searchable, restarts the stack and checks the mail survives and
-`config-site.php` neither grows nor breaks, rotates the database password and
-checks both the archiver and the UI pick it up, drains the spool, and forces a
-service into `FATAL` to verify `exit-on-fatal` brings the container down.
-Dispatch it manually to test a branch: `workflow_run` always loads the workflow
-file from `main`.
+`validate-piler-server.yml` logs in as admin and auditor, sends a real mail and
+checks it is archived and searchable, restarts the stack and checks the mail
+survives and `config-site.php` neither grows nor breaks, rotates the database
+password and checks both the archiver and the UI pick it up, drains the spool,
+and forces a service into `FATAL` to verify `exit-on-fatal` brings the
+container down. Dispatch it manually to test a branch: `workflow_run` always
+loads the workflow file from `main`.
 
 ## Renovate
+
+Renovate's config for this image lives in the root `renovate.json`, not here
+(Renovate reads only the repo-root config).
 
 - Ubuntu base image: tracked natively by Renovate's `docker` datasource.
 - `PILER_VERSION` and `SUPERCRONIC_VERSION`: `customManagers` regex entries
@@ -361,10 +367,12 @@ file from `main`.
   (`11.4`, `1.6-alpine`), so Renovate has no patch to bump and a
   `docker compose pull` picks the fixes up on its own. Only manticore is an
   exact patch, since upstream publishes no series tag for it.
-- Checksums (`PILER_SHA256`, `SUPERCRONIC_SHA256`) are **not** managed by
-  Renovate. A version-bump PR fails the build on the sha256 check until the new
-  digest is pasted in by hand — copy it from the release page (URLs are in the
-  Dockerfile comments next to each ARG).
+- Checksums (`PILER_SHA256`, `SUPERCRONIC_SHA256`) are not managed by Renovate
+  directly - it cannot compute a file digest. `renovate-checksums.yml` fills
+  both in on the Renovate branch right after the version bump, so the PR goes
+  green on its own. A manual version bump still needs the digest pasted in by
+  hand, copied from the release page (URLs are in the Dockerfile comments next
+  to each ARG).
 
 ## Attachment text extraction
 
