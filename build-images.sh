@@ -15,8 +15,7 @@ repobase="${REPOBASE:-ghcr.io/nethserver}"
 # Configure the image name
 reponame="piler"
 
-# Derive the piler-server tag from its own Dockerfile, instead of pasting in
-# a moving "latest-<sha>" tag by hand on every piler-server change.
+# Derived, not hand-pasted: was a moving "latest-<sha>" tag edited on every piler-server change.
 piler_server_tag=$(cd piler-server && . ./dockerfile-vars.sh && printf '%s' "${piler_server_tag}")
 : "${piler_server_tag:?cannot derive the piler-server tag from piler-server/Dockerfile}"
 

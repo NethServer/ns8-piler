@@ -7,8 +7,7 @@
 # shellcheck shell=bash      # sourced fragment, no shebang of its own
 # shellcheck disable=SC2034  # all three are consumed by the sourcing script
 
-# Renovate's pinDigests can turn this into ubuntu:resolute-20260811.1@sha256:...;
-# stop at '@' so a digest never leaks into piler_server_tag.
+# Stop at '@' so a Renovate-added pinDigests suffix never leaks into piler_server_tag.
 base_image_tag=$(grep -oP -m1 '^ARG BASE_IMAGE=ubuntu:\K[^@[:space:]]+' Dockerfile)
 piler_version=$(grep -oP -m1 '^ARG PILER_VERSION=\K.*' Dockerfile)
 piler_server_tag="${piler_version}-${base_image_tag#*-}"

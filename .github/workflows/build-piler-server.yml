@@ -63,12 +63,9 @@ jobs:
           short_sha="${SHA:0:7}"
           sha_tag="${tag}-${short_sha}"
 
-          # sha_tag is what validate.yml pins to, so it always tests the exact
-          # commit it checked out even if tag gets overwritten by a later push.
+          # sha_tag: what validate-piler-server.yml pins to, immune to later pushes.
           tags=("${image}:${tag}" "${image}:${sha_tag}")
-          # Only push the derived version tag from main or from a git tag ref -
-          # a feature-branch build must never overwrite the tag that installed
-          # clusters pull.
+          # A feature branch must never overwrite the version tag installed clusters pull.
           if [ "${REF_NAME}" = "${DEFAULT_BRANCH}" ] || [ "${REF_TYPE}" = "tag" ]; then
             tags+=("${image}:${PILER_SERVER_TAG}")
           fi
