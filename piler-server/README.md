@@ -58,9 +58,9 @@ Only the files whose purpose is not obvious from the name:
 
 The CI workflows that build, lint and validate this image live at the repo
 root's `.github/workflows/` (`build-piler-server.yml`, `lint-piler-server.yml`,
-`validate-piler-server.yml`, `renovate-checksums.yml`) — GitHub only reads
-workflows from there, not from a subdirectory. See the root
-[README.md](../README.md#ci) for how they fit with the module's own CI.
+`validate-piler-server.yml`) — GitHub only reads workflows from there, not
+from a subdirectory. See the root [README.md](../README.md#ci) for how they
+fit with the module's own CI.
 
 ## Quick start
 
@@ -338,7 +338,6 @@ only reads workflows from there):
 | `lint-piler-server.yml` | push/PR touching `piler-server/**`, forks included | shellcheck, hadolint, and `tests/entrypoint-config-test.sh`. No credentials, no build, under a minute |
 | `build-piler-server.yml` | called from `publish-images.yml` | builds and pushes, before the module image is built so its label can reference the tag this run just pushed |
 | `validate-piler-server.yml` | `publish-images.yml` ("Publish images") completing, or `workflow_dispatch` | starts the full compose stack and exercises it |
-| `renovate-checksums.yml` | PR from a `renovate-*` branch touching `piler-server/Dockerfile` | resolves and commits `PILER_SHA256`/`SUPERCRONIC_SHA256` for the version Renovate just bumped |
 
 `build-piler-server.yml` tags `latest` only on the default branch, otherwise a
 sanitized branch name; every build also gets an immutable sha tag, which is
@@ -367,12 +366,14 @@ Renovate's config for this image lives in the root `renovate.json`, not here
   (`11.4`, `1.6-alpine`), so Renovate has no patch to bump and a
   `docker compose pull` picks the fixes up on its own. Only manticore is an
   exact patch, since upstream publishes no series tag for it.
-- Checksums (`PILER_SHA256`, `SUPERCRONIC_SHA256`) are not managed by Renovate
-  directly - it cannot compute a file digest. `renovate-checksums.yml` fills
-  both in on the Renovate branch right after the version bump, so the PR goes
-  green on its own. A manual version bump still needs the digest pasted in by
-  hand, copied from the release page (URLs are in the Dockerfile comments next
-  to each ARG).
+- Checksums (`PILER_SHA256`, `SUPERCRONIC_SHA256`) are **not** managed by
+  Renovate - it cannot compute a file digest. A version-bump PR (Renovate's or
+  a manual one) fails the build on the `sha256sum -c -` check until the new
+  digest is pasted in by hand, copied from the release page (URLs are in the
+  Dockerfile comments next to each ARG), committed and pushed to that branch
+  with your own credentials. That push is what re-triggers CI: a push made
+  from inside a workflow run with the default `GITHUB_TOKEN` does not fire a
+  new run, but a normal `git push` from your own account does.
 
 ## Attachment text extraction
 
