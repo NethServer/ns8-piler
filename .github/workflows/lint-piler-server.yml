@@ -1,15 +1,21 @@
-name: lint
+name: lint-piler-server
 
 # Needs no registry credentials and no build, so it runs on fork PRs too.
 on:
   push:
     branches: [main]
+    paths:
+      - piler-server/**
+      - .github/workflows/lint-piler-server.yml
   pull_request:
     types: [opened, synchronize, reopened]
+    paths:
+      - piler-server/**
+      - .github/workflows/lint-piler-server.yml
   workflow_dispatch: {}
 
 concurrency:
-  group: lint-${{ github.ref }}
+  group: lint-piler-server-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -23,12 +29,12 @@ jobs:
           persist-credentials: false
 
       - name: shellcheck
+        working-directory: piler-server
         run: |
           docker run --rm -v "${PWD}:/mnt" -w /mnt koalaman/shellcheck:stable \
             --severity=warning \
             entrypoint.sh \
             build-images.sh \
-            release-tag.sh \
             dockerfile-vars.sh \
             config/piler-run.sh \
             tests/entrypoint-config-test.sh
@@ -43,6 +49,7 @@ jobs:
           persist-credentials: false
 
       - name: hadolint
+        working-directory: piler-server
         run: |
           docker run --rm -i -v "${PWD}/.hadolint.yaml:/.hadolint.yaml" \
             hadolint/hadolint hadolint --no-color - < Dockerfile
@@ -61,4 +68,5 @@ jobs:
         run: php --version
 
       - name: Config generation tests
+        working-directory: piler-server
         run: tests/entrypoint-config-test.sh
