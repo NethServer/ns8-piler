@@ -19,7 +19,7 @@ import argparse
 # hand pilerimport plain .eml files instead, which is the path upstream
 # documents as the reliable one.
 FETCH_AND_IMPORT = r'''
-import imaplib, os, re, shutil, subprocess, sys, time
+import imaplib, os, re, shutil, subprocess, sys
 
 # A single FETCH response line carries a whole message, well past the 10k default.
 imaplib._MAXLINE = 10000000
@@ -84,22 +84,6 @@ for folder in names:
         continue
     nums = data[0].split()
 
-    # RFC822.SIZE carries no bodies, so batches can be capped by actual bytes
-    # instead of a message count that says nothing about size. Ask in slices:
-    # one FETCH listing every message number is rejected as "Too long argument"
-    # on a mailbox of any real size.
-    sizes = {}
-    for i in range(0, len(nums), 500):
-        rc, data = conn.fetch(b','.join(nums[i:i + 500]), '(RFC822.SIZE)')
-        if rc != 'OK':
-            continue
-        for item in data:
-            if not isinstance(item, bytes):
-                continue
-            m = re.match(rb'(\d+) \(RFC822\.SIZE (\d+)\)', item.strip())
-            if m:
-                sizes[m.group(1)] = int(m.group(2))
-
     print(f'folder {folder}: {len(nums)} message(s)', file=sys.stderr)
 
     batch_dir = os.path.join(tmpdir, 'batch')
@@ -107,22 +91,6 @@ for folder in names:
     n = bytes_held = 0
 
     for num in nums:
-        size = sizes.get(num, 0)
-        # Flush before adding, so one oversized message still gets its own
-        # batch rather than being skipped or splitting a message.
-        if n > 0 and (bytes_held + size > batch_bytes or n >= batch_count):
-            ok, ko = flush(batch_dir, n)
-            imported += ok
-            failed += ko
-            os.makedirs(batch_dir, exist_ok=True)
-            n = bytes_held = 0
-
-        # pilerimport's -Z only paces its own side; it used to fetch the mail
-        # too, so the same delay has to cover the download or the IMAP server
-        # takes the whole batch back to back.
-        if delay_ms != '0':
-            time.sleep(int(delay_ms) / 1000)
-
         try:
             rc, data = conn.fetch(num, '(RFC822)')
         except imaplib.IMAP4.error as e:
@@ -135,7 +103,17 @@ for folder in names:
         with open(os.path.join(batch_dir, f'{num.decode()}.eml'), 'wb') as fh:
             fh.write(data[0][1])
         n += 1
-        bytes_held += size
+        bytes_held += len(data[0][1])
+
+        # Weighed once downloaded, so no RFC822.SIZE round trip is needed. The
+        # batch can overshoot by its last message, which is unavoidable anyway:
+        # a message bigger than the whole budget still has to go in one piece.
+        if bytes_held >= batch_bytes or n >= batch_count:
+            ok, ko = flush(batch_dir, n)
+            imported += ok
+            failed += ko
+            os.makedirs(batch_dir, exist_ok=True)
+            n = bytes_held = 0
 
     ok, ko = flush(batch_dir, n)
     imported += ok
@@ -178,8 +156,10 @@ tmpdir = os.getenv('PILER_IMPORT_TMPDIR', '/var/piler/imap')
 batch_bytes = os.getenv('PILER_IMPORT_BATCH_BYTES', str(256 * 1024 * 1024))
 batch_count = os.getenv('PILER_IMPORT_BATCH_COUNT', '200')
 # 200ms between messages, as the pilerimport call this replaced already used.
-# PILER_IMPORT_LOAD_LIMIT additionally parks the archiver while the 1 minute
-# load average sits above it; 0 leaves that off.
+# Only the import is paced: that is where the load comes from, and while a
+# batch imports no IMAP traffic is going out at all. PILER_IMPORT_LOAD_LIMIT
+# additionally parks the archiver while the 1 minute load average sits above
+# it; 0 leaves that off.
 delay_ms = os.getenv('PILER_IMPORT_DELAY_MS', '200')
 la_limit = os.getenv('PILER_IMPORT_LOAD_LIMIT', '0')
 
