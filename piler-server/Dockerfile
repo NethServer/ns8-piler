@@ -3,12 +3,12 @@
 ARG BASE_IMAGE=ubuntu:resolute-20260811.1
 ARG PILER_VERSION=1.4.9
 # amd64-only image. sha256 of the amd64 .deb - on a version bump, copy the new
-# asset digest from the release page (each asset shows a sha256):
-#   https://github.com/jsuto/piler/releases  (open the piler-<version> tag)
+# asset digest from the release page (each asset shows a sha256), or:
+#   curl -fsSL "https://api.github.com/repos/jsuto/piler/releases/tags/piler-<version>" | jq -r '.assets[] | select(.name | test("_amd64\\.deb$")) | .digest' | sed 's/^sha256://'
 ARG PILER_SHA256=e6f9e5e7bf307f024ea248352b93d5cad0925f0f998b2902e0e64ce0db51859a
 ARG SUPERCRONIC_VERSION=v0.2.49
-# sha256 of the amd64 binary, from the release page:
-#   https://github.com/aptible/supercronic/releases  (open the <version> tag)
+# sha256 of the amd64 binary - no API digest for this one, download and hash it:
+#   curl -fsSLo supercronic "https://github.com/aptible/supercronic/releases/download/<version>/supercronic-linux-amd64" && sha256sum supercronic
 ARG SUPERCRONIC_SHA256=a53ae236602c7338aba3fbaff40bda6300eae3b9fedb8261eb06cfe3724430c1
 
 # --- stage: fetcher ---------------------------------------------------------
