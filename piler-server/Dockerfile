@@ -146,9 +146,11 @@ COPY entrypoint.sh /entrypoint.sh
 COPY config/supervisord.conf /etc/supervisor/supervisord.conf
 COPY config/exit-on-fatal-listener.py /etc/supervisor/exit-on-fatal-listener.py
 COPY config/piler-run.sh /etc/supervisor/piler-run.sh
-RUN chmod +x /entrypoint.sh /etc/supervisor/piler-run.sh && \
+# Works around pilerimport's broken IMAP mode, see the script's own header.
+COPY config/imap-fetch.py /usr/local/bin/piler-imap-fetch
+RUN chmod +x /entrypoint.sh /etc/supervisor/piler-run.sh /usr/local/bin/piler-imap-fetch && \
     chown -R piler:piler /tmp/piler-conf && \
-    chown piler:piler /entrypoint.sh /etc/supervisor/supervisord.conf /etc/supervisor/exit-on-fatal-listener.py /etc/supervisor/piler-run.sh
+    chown piler:piler /entrypoint.sh /etc/supervisor/supervisord.conf /etc/supervisor/exit-on-fatal-listener.py /etc/supervisor/piler-run.sh /usr/local/bin/piler-imap-fetch
 
 # /var/piler/tmp holds mail accepted but not yet archived: on a volume, or a
 # container recreation with a non-empty spool loses it.

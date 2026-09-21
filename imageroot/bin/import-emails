@@ -12,109 +12,6 @@ import os
 import agent
 import argparse
 
-# pilerimport's own IMAP mode (-i) is broken since piler 1.4.9: libcurl 8.18.0
-# hands it the untagged "* N FETCH (BODY[] {size}" line together with the body,
-# its memmem() lookup fails, and it imports nothing while still exiting 0.
-# See https://github.com/jsuto/piler/issues/506. Fetch over IMAP here and hand
-# pilerimport plain .eml files instead, which is the path upstream documents as
-# the reliable one. Small batches keep the temporary files bounded.
-#
-# IMAP_PASSWORD is prepended to this script on stdin rather than passed as an
-# argument: argv is world-readable in ps, and it surfaced in a traceback.
-FETCH_AND_IMPORT = r'''
-import imaplib, os, re, shutil, subprocess, sys
-
-# A single FETCH response line carries a whole message, well past the 10k default.
-imaplib._MAXLINE = 10000000
-
-server, user, tmpdir = sys.argv[1], sys.argv[2], sys.argv[3]
-batch, delay_ms, la_limit = int(sys.argv[4]), sys.argv[5], sys.argv[6]
-search = sys.argv[7] if len(sys.argv) > 7 else 'ALL'
-
-batch_dir = os.path.join(tmpdir, 'batch')
-failed = 0
-
-# Start from a clean slate: a run killed mid-batch leaves .eml behind, and
-# importing them again would only make pilerimport count duplicates.
-shutil.rmtree(tmpdir, ignore_errors=True)
-
-def import_batch():
-    """Import what has been downloaded, then start the directory over."""
-    # -Z paces the archiver, -z parks it while the load average is too high;
-    # both live in import_message(), shared by the directory path. pilerimport
-    # writes scratch files into the current directory and aborts with
-    # "cannot write current directory!" if it is not writable.
-    cmd = ['/usr/bin/pilerimport', '-Z', delay_ms, '-d', batch_dir]
-    if la_limit != '0':
-        cmd[1:1] = ['-z', la_limit]
-    rc = subprocess.run(cmd, cwd=batch_dir).returncode
-    shutil.rmtree(batch_dir, ignore_errors=True)
-    os.makedirs(batch_dir, exist_ok=True)
-    if rc != 0:
-        print(f'pilerimport failed (rc={rc})', file=sys.stderr)
-    return rc != 0
-
-conn = imaplib.IMAP4(server, 143)
-try:
-    conn.login(user, IMAP_PASSWORD)
-except imaplib.IMAP4.error as e:
-    # list-user-mailboxes reports accounts that have no mailbox to log into,
-    # root among them; say so in one line instead of a traceback.
-    print(f'cannot log in as {user}, skipping: {e}', file=sys.stderr)
-    sys.exit(2)
-
-# No skip list: pilerimport -i archived every folder, including Trash and Junk,
-# so filtering any of them out here would silently shrink what gets archived.
-names = []
-for f in conn.list()[1]:
-    if isinstance(f, tuple):
-        f = re.sub(rb'\{\d+\}$', b'', f[0]) + f[1]
-    parts = re.split(r' "[\/\.\\\\]+" ', f.decode('utf-8', 'replace'))
-    if len(parts) > 1:
-        names.append(parts[1].strip('"'))
-
-os.makedirs(batch_dir, exist_ok=True)
-
-for folder in names:
-    if conn.select(f'"{folder}"', readonly=True)[0] != 'OK':
-        print(f'cannot open folder {folder}, skipping', file=sys.stderr)
-        continue
-
-    rc, data = conn.search(None, search)
-    nums = data[0].split() if rc == 'OK' and data and data[0] else []
-    if not nums:
-        continue
-    print(f'folder {folder}: {len(nums)} message(s)', file=sys.stderr)
-
-    n = 0
-    for num in nums:
-        try:
-            rc, data = conn.fetch(num, '(RFC822)')
-        except imaplib.IMAP4.error as e:
-            print(f'cannot fetch {num.decode()} in {folder}: {e}', file=sys.stderr)
-            continue
-        if rc != 'OK' or not data or not isinstance(data[0], tuple):
-            print(f'cannot fetch {num.decode()} in {folder}', file=sys.stderr)
-            continue
-
-        with open(os.path.join(batch_dir, num.decode() + '.eml'), 'wb') as fh:
-            fh.write(data[0][1])
-
-        n += 1
-        if n == batch:
-            failed += import_batch()
-            n = 0
-
-    if n:
-        failed += import_batch()
-
-conn.logout()
-shutil.rmtree(tmpdir, ignore_errors=True)
-if failed:
-    print(f'{failed} batch(es) failed to import', file=sys.stderr)
-    sys.exit(1)
-'''
-
 parser = argparse.ArgumentParser(description='Script for importing user mailboxes from an IMAP server into the mail piler archive')
 parser.add_argument('-A', '--after', metavar='AFTER_TIMESTAMP', type=str,
                     help='Import emails after the specified value (unix timestamp)')
@@ -123,11 +20,13 @@ parser.add_argument('-B', '--before', metavar='BEFORE_TIMESTAMP', type=str,
 
 args = parser.parse_args()
 
+
 # IMAP SEARCH takes a DD-Mon-YYYY date, not the unix timestamp pilerimport's
 # -A/-B accepted, so the value has to be reshaped rather than passed through.
 def imap_date(timestamp):
     return datetime.datetime.fromtimestamp(
         int(timestamp), datetime.timezone.utc).strftime('%d-%b-%Y')
+
 
 search = 'ALL'
 if args.after is not None:
@@ -137,7 +36,11 @@ elif args.before is not None:
     print("Import emails before timestamp:", args.before, file=sys.stderr)
     search = f'(BEFORE "{imap_date(args.before)}")'
 
-# The .eml files live on the container's writable layer: /var/piler/tmp is the
+# piler-imap-fetch downloads each mailbox and hands it to pilerimport in
+# batches; it ships in the piler-server image, which this repo builds from the
+# same commit, so the two cannot drift apart.
+#
+# Its .eml files live on the container's writable layer: /var/piler/tmp is the
 # archiver spool that piler-run.sh counts to decide the drain is done, and
 # /var/piler/store is in state-include.conf so throwaway files would end up in
 # a restic backup. Override only if the root disk is tight.
@@ -180,13 +83,13 @@ if providers:
         try:
             print(f"### Importing {user} to {os.environ['MODULE_ID']}", file=sys.stderr)
 
-            # repr() quotes the password safely whatever it contains.
+            # The password goes in on stdin: argv is world-readable in ps, and
+            # it surfaced in a traceback when it was an argument.
             subprocess.run([
                 '/usr/bin/podman', 'exec', '-i', '-u', 'piler', 'piler-app',
-                'python3', '-', ip_address, f'{user}*vmail',
+                '/usr/local/bin/piler-imap-fetch', ip_address, f'{user}*vmail',
                 os.path.join(tmpdir, user), batch, delay_ms, la_limit, search
-            ], input=f'IMAP_PASSWORD = {password!r}\n' + FETCH_AND_IMPORT,
-               text=True, check=True)
+            ], input=password + '\n', text=True, check=True)
         except subprocess.CalledProcessError as e:
             # The child already said what went wrong; repeating str(e) would
             # dump the whole podman command line after it.
