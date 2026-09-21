@@ -41,7 +41,9 @@ def import_batch():
     # "cannot write current directory!" if it is not writable.
     cmd = ['/usr/bin/pilerimport', '-Z', delay_ms, '-d', batch_dir]
     if la_limit != '0':
-        cmd[1:1] = ['-z', la_limit]
+        # Only when asked for: pilerimport rejects -z 0 outright, even though 0
+        # is the value it uses internally to mean "no limit".
+        cmd += ['-z', la_limit]
     rc = subprocess.run(cmd, cwd=batch_dir).returncode
     shutil.rmtree(batch_dir, ignore_errors=True)
     os.makedirs(batch_dir, exist_ok=True)
@@ -61,13 +63,15 @@ except imaplib.IMAP4.error as e:
 
 # No skip list: pilerimport -i archived every folder, including Trash and Junk,
 # so filtering any of them out here would silently shrink what gets archived.
+# LIST answers '(\flags) "<separator>" <name>', with the name quoted or, for
+# one holding a quote, sent as a literal split across the tuple.
 names = []
 for f in conn.list()[1]:
     if isinstance(f, tuple):
         f = re.sub(rb'\{\d+\}$', b'', f[0]) + f[1]
-    parts = re.split(r' "[\/\.\\\\]+" ', f.decode('utf-8', 'replace'))
-    if len(parts) > 1:
-        names.append(parts[1].strip('"'))
+    m = re.match(r'\([^)]*\) "[^"]+" (.*)', f.decode('utf-8', 'replace'))
+    if m:
+        names.append(m.group(1).strip('"'))
 
 # Start from a clean slate: a run killed mid-batch leaves .eml behind, and
 # importing them again would only make pilerimport count duplicates.
@@ -85,27 +89,23 @@ for folder in names:
         continue
     print(f'folder {folder}: {len(nums)} message(s)', file=sys.stderr)
 
-    n = 0
-    for num in nums:
-        try:
-            rc, data = conn.fetch(num, '(RFC822)')
-        except imaplib.IMAP4.error as e:
-            print(f'cannot fetch {num.decode()} in {folder}: {e}', file=sys.stderr)
-            continue
-        if rc != 'OK' or not data or not isinstance(data[0], tuple):
-            print(f'cannot fetch {num.decode()} in {folder}', file=sys.stderr)
-            continue
+    for i in range(0, len(nums), batch):
+        for num in nums[i:i + batch]:
+            try:
+                rc, data = conn.fetch(num, '(RFC822)')
+            except imaplib.IMAP4.error as e:
+                print(f'cannot fetch {num.decode()} in {folder}: {e}', file=sys.stderr)
+                continue
+            if rc != 'OK' or not data or not isinstance(data[0], tuple):
+                print(f'cannot fetch {num.decode()} in {folder}', file=sys.stderr)
+                continue
 
-        with open(os.path.join(batch_dir, num.decode() + '.eml'), 'wb') as fh:
-            fh.write(data[0][1])
+            with open(os.path.join(batch_dir, num.decode() + '.eml'), 'wb') as fh:
+                fh.write(data[0][1])
 
-        n += 1
-        if n == batch:
+        # Empty when every fetch in this slice failed; nothing to hand over.
+        if os.listdir(batch_dir):
             failed += import_batch()
-            n = 0
-
-    if n:
-        failed += import_batch()
 
 conn.logout()
 shutil.rmtree(tmpdir, ignore_errors=True)
