@@ -32,7 +32,7 @@ jobs:
     # own - only a ::notice buried in its logs. module-info.yml already
     # resolved the pushed image afterward, so surface it here instead.
     needs: module
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Module images
         env:
