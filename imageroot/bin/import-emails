@@ -15,29 +15,27 @@ import argparse
 # pilerimport's own IMAP mode (-i) is broken since piler 1.4.9: libcurl 8.18.0
 # hands it the untagged "* N FETCH (BODY[] {size}" line together with the body,
 # its memmem() lookup fails, and it imports nothing while still exiting 0.
-# See https://github.com/jsuto/piler/issues/506. Fetch over IMAP ourselves and
-# hand pilerimport plain .eml files instead, which is the path upstream
-# documents as the reliable one.
+# See https://github.com/jsuto/piler/issues/506. Fetch over IMAP here and hand
+# pilerimport plain .eml files instead, which is the path upstream documents as
+# the reliable one. Small batches keep the temporary files bounded.
+#
+# IMAP_PASSWORD is prepended to this script on stdin rather than passed as an
+# argument: argv is world-readable in ps, and it surfaced in a traceback.
 FETCH_AND_IMPORT = r'''
 import imaplib, os, re, shutil, subprocess, sys
 
 # A single FETCH response line carries a whole message, well past the 10k default.
 imaplib._MAXLINE = 10000000
 
-# IMAP_PASSWORD is prepended to this script on stdin rather than passed as an
-# argument: argv is world-readable in ps, and it surfaced in a traceback.
-server, user = sys.argv[1], sys.argv[2]
-tmpdir, batch_bytes, batch_count = sys.argv[3], int(sys.argv[4]), int(sys.argv[5])
-delay_ms, la_limit = sys.argv[6], sys.argv[7]
-search = sys.argv[8] if len(sys.argv) > 8 else 'ALL'
+server, user, tmpdir = sys.argv[1], sys.argv[2], sys.argv[3]
+batch, delay_ms, la_limit = int(sys.argv[4]), sys.argv[5], sys.argv[6]
+search = sys.argv[7] if len(sys.argv) > 7 else 'ALL'
 
-imported = 0
+batch_dir = os.path.join(tmpdir, 'batch')
 failed = 0
 
-def flush(batch_dir, n):
-    """Import one batch, drop its files, and report how many made it in."""
-    if n == 0:
-        return 0, 0
+def import_batch():
+    """Import what has been downloaded, then start the directory over."""
     # -Z paces the archiver, -z parks it while the load average is too high;
     # both live in import_message(), shared by the directory path. pilerimport
     # writes scratch files into the current directory and aborts with
@@ -47,10 +45,10 @@ def flush(batch_dir, n):
         cmd[1:1] = ['-z', la_limit]
     rc = subprocess.run(cmd, cwd=batch_dir).returncode
     shutil.rmtree(batch_dir, ignore_errors=True)
+    os.makedirs(batch_dir, exist_ok=True)
     if rc != 0:
-        print(f'pilerimport failed on a batch of {n} (rc={rc})', file=sys.stderr)
-        return 0, n
-    return n, 0
+        print(f'pilerimport failed (rc={rc})', file=sys.stderr)
+    return rc != 0
 
 conn = imaplib.IMAP4(server, 143)
 try:
@@ -63,66 +61,52 @@ except imaplib.IMAP4.error as e:
 
 # No skip list: pilerimport -i archived every folder, including Trash and Junk,
 # so filtering any of them out here would silently shrink what gets archived.
-rc, folders = conn.list()
 names = []
-for f in folders:
+for f in conn.list()[1]:
     if isinstance(f, tuple):
         f = re.sub(rb'\{\d+\}$', b'', f[0]) + f[1]
-    f = f.decode('utf-8', 'replace')
-    parts = re.split(r' "[\/\.\\\\]+" ', f)
+    parts = re.split(r' "[\/\.\\\\]+" ', f.decode('utf-8', 'replace'))
     if len(parts) > 1:
         names.append(parts[1].strip('"'))
 
+os.makedirs(batch_dir, exist_ok=True)
+
 for folder in names:
-    rc, data = conn.select(f'"{folder}"', readonly=True)
-    if rc != 'OK':
-        print(f'skipping folder {folder}: {rc}', file=sys.stderr)
+    if conn.select(f'"{folder}"', readonly=True)[0] != 'OK':
+        print(f'cannot open folder {folder}, skipping', file=sys.stderr)
         continue
 
     rc, data = conn.search(None, search)
-    if rc != 'OK' or not data or not data[0]:
+    nums = data[0].split() if rc == 'OK' and data and data[0] else []
+    if not nums:
         continue
-    nums = data[0].split()
-
     print(f'folder {folder}: {len(nums)} message(s)', file=sys.stderr)
 
-    batch_dir = os.path.join(tmpdir, 'batch')
-    os.makedirs(batch_dir, exist_ok=True)
-    n = bytes_held = 0
-
+    n = 0
     for num in nums:
         try:
             rc, data = conn.fetch(num, '(RFC822)')
         except imaplib.IMAP4.error as e:
-            print(f'cannot fetch message {num.decode()} in {folder}: {e}', file=sys.stderr)
+            print(f'cannot fetch {num.decode()} in {folder}: {e}', file=sys.stderr)
             continue
         if rc != 'OK' or not data or not isinstance(data[0], tuple):
-            print(f'cannot fetch message {num.decode()} in {folder}', file=sys.stderr)
+            print(f'cannot fetch {num.decode()} in {folder}', file=sys.stderr)
             continue
 
-        with open(os.path.join(batch_dir, f'{num.decode()}.eml'), 'wb') as fh:
+        with open(os.path.join(batch_dir, num.decode() + '.eml'), 'wb') as fh:
             fh.write(data[0][1])
+
         n += 1
-        bytes_held += len(data[0][1])
+        if n == batch:
+            failed += import_batch()
+            n = 0
 
-        # Weighed once downloaded, so no RFC822.SIZE round trip is needed. The
-        # batch can overshoot by its last message, which is unavoidable anyway:
-        # a message bigger than the whole budget still has to go in one piece.
-        if bytes_held >= batch_bytes or n >= batch_count:
-            ok, ko = flush(batch_dir, n)
-            imported += ok
-            failed += ko
-            os.makedirs(batch_dir, exist_ok=True)
-            n = bytes_held = 0
-
-    ok, ko = flush(batch_dir, n)
-    imported += ok
-    failed += ko
+    if n:
+        failed += import_batch()
 
 conn.logout()
-print(f'imported {imported} message(s)', file=sys.stderr)
 if failed:
-    print(f'{failed} message(s) failed to import', file=sys.stderr)
+    print(f'{failed} batch(es) failed to import', file=sys.stderr)
     sys.exit(1)
 '''
 
@@ -148,13 +132,12 @@ elif args.before is not None:
     print("Import emails before timestamp:", args.before, file=sys.stderr)
     search = f'(BEFORE "{imap_date(args.before)}")'
 
-# Lives on the container's writable layer: /var/piler/tmp is the archiver spool
-# and piler-run.sh counts files there to decide the drain is done, while
-# /var/piler/store is in state-include.conf and would pull these throwaway
-# files into a restic backup. Override only if the root disk is tight.
+# The .eml files live on the container's writable layer: /var/piler/tmp is the
+# archiver spool that piler-run.sh counts to decide the drain is done, and
+# /var/piler/store is in state-include.conf so throwaway files would end up in
+# a restic backup. Override only if the root disk is tight.
 tmpdir = os.getenv('PILER_IMPORT_TMPDIR', '/var/piler/imap')
-batch_bytes = os.getenv('PILER_IMPORT_BATCH_BYTES', str(256 * 1024 * 1024))
-batch_count = os.getenv('PILER_IMPORT_BATCH_COUNT', '200')
+batch = os.getenv('PILER_IMPORT_BATCH', '20')
 # 200ms between messages, as the pilerimport call this replaced already used.
 # Only the import is paced: that is where the load comes from, and while a
 # batch imports no IMAP traffic is going out at all. PILER_IMPORT_LOAD_LIMIT
@@ -195,12 +178,11 @@ if providers:
                 'rm', '-rf', user_tmpdir
             ], check=True)
 
-            # The password rides in on stdin with the script, never in argv:
-            # repr() quotes it safely whatever it contains.
+            # repr() quotes the password safely whatever it contains.
             subprocess.run([
                 '/usr/bin/podman', 'exec', '-i', '-u', 'piler', 'piler-app',
                 'python3', '-', ip_address, f'{user}*vmail',
-                user_tmpdir, batch_bytes, batch_count, delay_ms, la_limit, search
+                user_tmpdir, batch, delay_ms, la_limit, search
             ], input=f'IMAP_PASSWORD = {password!r}\n' + FETCH_AND_IMPORT,
                text=True, check=True)
 
