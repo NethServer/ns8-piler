@@ -15,6 +15,11 @@ repobase="${REPOBASE:-ghcr.io/nethserver}"
 # Configure the image name
 reponame="piler"
 
+# Was a moving "latest-<sha>" tag edited by hand on every piler-server change.
+# build-piler-server.yml pushes this same IMAGETAG for piler-server, so it
+# always exists for whatever ref is being built.
+piler_server_tag=$(echo "${IMAGETAG:-latest}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+|-+$//g')
+
 # Create a new empty container image
 container=$(buildah from scratch)
 
@@ -38,7 +43,7 @@ buildah config --entrypoint=/ \
     --label="org.nethserver.rootfull=0" \
     --label="org.nethserver.min-core=3.20.1" \
     --label="org.nethserver.min-from=1.2.3" \
-    --label="org.nethserver.images=ghcr.io/nethserver/piler-server:latest-a01e8a7 docker.io/mariadb:10.11.19 docker.io/memcached:1.6.45-alpine docker.io/manticoresearch/manticore:14.1.0" \
+    --label="org.nethserver.images=${repobase}/piler-server:${piler_server_tag} docker.io/mariadb:10.11.19 docker.io/memcached:1.6.45-alpine docker.io/manticoresearch/manticore:14.1.0" \
     "${container}"
 # Commit the image
 buildah commit "${container}" "${repobase}/${reponame}"

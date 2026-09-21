@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
+import datetime
 import subprocess
 import sys
 import os
@@ -19,14 +20,41 @@ parser.add_argument('-B', '--before', metavar='BEFORE_TIMESTAMP', type=str,
 
 args = parser.parse_args()
 
-timestamp = []
 
+# IMAP SEARCH takes a DD-Mon-YYYY date, not the unix timestamp pilerimport's
+# -A/-B accepted, so the value has to be reshaped rather than passed through.
+def imap_date(timestamp):
+    return datetime.datetime.fromtimestamp(
+        int(timestamp), datetime.timezone.utc).strftime('%d-%b-%Y')
+
+
+search = 'ALL'
 if args.after is not None:
-    print("Import emails after timestamp:", args.after,  file=sys.stderr)
-    timestamp += ['-A', args.after]
+    print("Import emails after timestamp:", args.after, file=sys.stderr)
+    search = f'(SINCE "{imap_date(args.after)}")'
 elif args.before is not None:
-    print("Import emails before timestamp:", args.before,  file=sys.stderr)
-    timestamp += ['-B', args.before]
+    print("Import emails before timestamp:", args.before, file=sys.stderr)
+    search = f'(BEFORE "{imap_date(args.before)}")'
+
+# piler-imap-fetch downloads each mailbox and hands it to pilerimport in
+# batches; it ships in the piler-server image, which this repo builds from the
+# same commit, so the two cannot drift apart.
+#
+# Its .eml files live on the container's writable layer: /var/piler/tmp is the
+# archiver spool that piler-run.sh counts to decide the drain is done, and
+# /var/piler/store is in state-include.conf so throwaway files would end up in
+# a restic backup. Override only if the root disk is tight.
+tmpdir = os.getenv('PILER_IMPORT_TMPDIR', '/var/piler/imap')
+batch = os.getenv('PILER_IMPORT_BATCH', '20')
+# 200ms between messages, as the pilerimport call this replaced already used.
+# Only the import is paced: that is where the load comes from, and while a
+# batch imports no IMAP traffic is going out at all. PILER_IMPORT_LOAD_LIMIT
+# additionally parks the archiver while the 1 minute load average sits above
+# it; 0 leaves that off.
+delay_ms = os.getenv('PILER_IMPORT_DELAY_MS', '200')
+la_limit = os.getenv('PILER_IMPORT_LOAD_LIMIT', '0')
+# list-user-mailboxes reports root, which has no mailbox dovecot will open.
+skip_users = set(filter(None, os.getenv('PILER_IMPORT_SKIP_USERS', 'root').split(',')))
 
 rdb = agent.redis_connect()
 
@@ -43,7 +71,8 @@ if providers:
     agent.assert_exp(response['exit_code'] == 0)
 
     # Extract user names into a list
-    user_list = [user_data["user"] for user_data in response['output'].get("user_mailboxes")]
+    user_list = [user_data["user"] for user_data in response['output'].get("user_mailboxes")
+                 if user_data["user"] not in skip_users]
 
     # retrieve the vmail password
     response = agent.tasks.run(f"module/{mail_id}", action='reveal-master-credentials')
@@ -54,10 +83,18 @@ if providers:
         try:
             print(f"### Importing {user} to {os.environ['MODULE_ID']}", file=sys.stderr)
 
+            # The password goes in on stdin: argv is world-readable in ps, and
+            # it surfaced in a traceback when it was an argument.
             subprocess.run([
-                '/usr/bin/podman', 'exec', '-w', '/var/piler/imap', '-u', 'piler', 'piler-app',
-                '/usr/bin/pilerimport', '-Z', '200', *timestamp , '-i',  'imap://'+ip_address, '-u',  f'{user}*vmail', '-p', password, '-P', '143'
-            ])
+                '/usr/bin/podman', 'exec', '-i', '-u', 'piler', 'piler-app',
+                '/usr/local/bin/piler-imap-fetch', ip_address, f'{user}*vmail',
+                os.path.join(tmpdir, user), batch, delay_ms, la_limit, search
+            ], input=password + '\n', text=True, check=True)
+        except subprocess.CalledProcessError as e:
+            # The child already said what went wrong; repeating str(e) would
+            # dump the whole podman command line after it.
+            print(f"### Skipped {user}, import exited {e.returncode}", file=sys.stderr)
+            continue
         except Exception as e:
             print(f"### Error to import {user} to {os.environ['MODULE_ID']}: {e}", file=sys.stderr)
             continue

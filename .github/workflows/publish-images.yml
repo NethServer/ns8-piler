@@ -11,7 +11,10 @@ permissions:
   security-events: write
 
 jobs:
+  piler-server:
+    uses: ./.github/workflows/build-piler-server.yml
   publish-images:
+    needs: piler-server
     if: github.run_number > 1
     uses: NethServer/ns8-github-actions/.github/workflows/publish-branch.yml@v1
   module:
@@ -23,3 +26,28 @@ jobs:
     uses: NethServer/ns8-github-actions/.github/workflows/scan-with-trivy.yml@v1
     with:
       images: ${{ needs.module.outputs.images }}
+  summary:
+    # publish-branch.yml (the job that actually builds and pushes the module
+    # image) is an external reusable workflow with no step summary of its
+    # own - only a ::notice buried in its logs. module-info.yml already
+    # resolved the pushed image afterward, so surface it here instead.
+    needs: module
+    runs-on: ubuntu-latest
+    steps:
+      - name: Module images
+        env:
+          IMAGE: ${{ needs.module.outputs.image }}
+          IMAGES: ${{ needs.module.outputs.images }}
+        run: |
+          {
+            echo "### piler module image"
+            echo '```'
+            echo "${IMAGE}"
+            echo '```'
+            # module-info.yml appends the module's own image to this list too -
+            # already shown above, so drop it here to avoid printing it twice.
+            echo "### piler-server + sidecars"
+            echo '```'
+            echo "${IMAGES}" | jq -r --arg img "${IMAGE}" '.[] | select(. != $img)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
