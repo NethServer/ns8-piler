@@ -5,11 +5,121 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
+import datetime
 import subprocess
 import sys
 import os
 import agent
 import argparse
+
+# pilerimport's own IMAP mode (-i) is broken since piler 1.4.9: libcurl 8.18.0
+# hands it the untagged "* N FETCH (BODY[] {size}" line together with the body,
+# its memmem() lookup fails, and it imports nothing while still exiting 0.
+# See https://github.com/jsuto/piler/issues/506. Fetch over IMAP ourselves and
+# hand pilerimport plain .eml files instead, which is the path upstream
+# documents as the reliable one.
+FETCH_AND_IMPORT = r'''
+import imaplib, os, re, shutil, subprocess, sys
+
+# A single FETCH response line carries a whole message, well past the 10k default.
+imaplib._MAXLINE = 10000000
+
+server, user, password = sys.argv[1], sys.argv[2], sys.argv[3]
+tmpdir, batch_bytes, batch_count = sys.argv[4], int(sys.argv[5]), int(sys.argv[6])
+search = sys.argv[7] if len(sys.argv) > 7 else 'ALL'
+
+imported = 0
+failed = 0
+
+def flush(batch_dir, n):
+    """Import one batch, drop its files, and report how many made it in."""
+    if n == 0:
+        return 0, 0
+    # pilerimport writes scratch files into the current directory and aborts
+    # with "cannot write current directory!" if it is not writable.
+    rc = subprocess.run(['/usr/bin/pilerimport', '-d', batch_dir],
+                        cwd=batch_dir).returncode
+    shutil.rmtree(batch_dir, ignore_errors=True)
+    if rc != 0:
+        print(f'pilerimport failed on a batch of {n} (rc={rc})', file=sys.stderr)
+        return 0, n
+    return n, 0
+
+conn = imaplib.IMAP4(server, 143)
+conn.login(user, password)
+
+# No skip list: pilerimport -i archived every folder, including Trash and Junk,
+# so filtering any of them out here would silently shrink what gets archived.
+rc, folders = conn.list()
+names = []
+for f in folders:
+    if isinstance(f, tuple):
+        f = re.sub(rb'\{\d+\}$', b'', f[0]) + f[1]
+    f = f.decode('utf-8', 'replace')
+    parts = re.split(r' "[\/\.\\\\]+" ', f)
+    if len(parts) > 1:
+        names.append(parts[1].strip('"'))
+
+for folder in names:
+    rc, data = conn.select(f'"{folder}"', readonly=True)
+    if rc != 'OK':
+        print(f'skipping folder {folder}: {rc}', file=sys.stderr)
+        continue
+
+    rc, data = conn.search(None, search)
+    if rc != 'OK' or not data or not data[0]:
+        continue
+    nums = data[0].split()
+
+    # RFC822.SIZE costs one round trip and no bodies, so batches can be capped
+    # by actual bytes instead of a message count that says nothing about size.
+    sizes = {}
+    rc, data = conn.fetch(b','.join(nums), '(RFC822.SIZE)')
+    if rc == 'OK':
+        for item in data:
+            if not isinstance(item, bytes):
+                continue
+            m = re.match(rb'(\d+) \(RFC822\.SIZE (\d+)\)', item.strip())
+            if m:
+                sizes[m.group(1)] = int(m.group(2))
+
+    print(f'folder {folder}: {len(nums)} message(s)', file=sys.stderr)
+
+    batch_dir = os.path.join(tmpdir, 'batch')
+    os.makedirs(batch_dir, exist_ok=True)
+    n = bytes_held = 0
+
+    for num in nums:
+        size = sizes.get(num, 0)
+        # Flush before adding, so one oversized message still gets its own
+        # batch rather than being skipped or splitting a message.
+        if n > 0 and (bytes_held + size > batch_bytes or n >= batch_count):
+            ok, ko = flush(batch_dir, n)
+            imported += ok
+            failed += ko
+            os.makedirs(batch_dir, exist_ok=True)
+            n = bytes_held = 0
+
+        rc, data = conn.fetch(num, '(RFC822)')
+        if rc != 'OK' or not data or not isinstance(data[0], tuple):
+            print(f'cannot fetch message {num.decode()} in {folder}', file=sys.stderr)
+            continue
+
+        with open(os.path.join(batch_dir, f'{num.decode()}.eml'), 'wb') as fh:
+            fh.write(data[0][1])
+        n += 1
+        bytes_held += size
+
+    ok, ko = flush(batch_dir, n)
+    imported += ok
+    failed += ko
+
+conn.logout()
+print(f'imported {imported} message(s)', file=sys.stderr)
+if failed:
+    print(f'{failed} message(s) failed to import', file=sys.stderr)
+    sys.exit(1)
+'''
 
 parser = argparse.ArgumentParser(description='Script for importing user mailboxes from an IMAP server into the mail piler archive')
 parser.add_argument('-A', '--after', metavar='AFTER_TIMESTAMP', type=str,
@@ -19,14 +129,27 @@ parser.add_argument('-B', '--before', metavar='BEFORE_TIMESTAMP', type=str,
 
 args = parser.parse_args()
 
-timestamp = []
+# IMAP SEARCH takes a DD-Mon-YYYY date, not the unix timestamp pilerimport's
+# -A/-B accepted, so the value has to be reshaped rather than passed through.
+def imap_date(timestamp):
+    return datetime.datetime.fromtimestamp(
+        int(timestamp), datetime.timezone.utc).strftime('%d-%b-%Y')
 
+search = 'ALL'
 if args.after is not None:
-    print("Import emails after timestamp:", args.after,  file=sys.stderr)
-    timestamp += ['-A', args.after]
+    print("Import emails after timestamp:", args.after, file=sys.stderr)
+    search = f'(SINCE "{imap_date(args.after)}")'
 elif args.before is not None:
-    print("Import emails before timestamp:", args.before,  file=sys.stderr)
-    timestamp += ['-B', args.before]
+    print("Import emails before timestamp:", args.before, file=sys.stderr)
+    search = f'(BEFORE "{imap_date(args.before)}")'
+
+# Lives on the container's writable layer: /var/piler/tmp is the archiver spool
+# and piler-run.sh counts files there to decide the drain is done, while
+# /var/piler/store is in state-include.conf and would pull these throwaway
+# files into a restic backup. Override only if the root disk is tight.
+tmpdir = os.getenv('PILER_IMPORT_TMPDIR', '/var/piler/imap')
+batch_bytes = os.getenv('PILER_IMPORT_BATCH_BYTES', str(256 * 1024 * 1024))
+batch_count = os.getenv('PILER_IMPORT_BATCH_COUNT', '200')
 
 rdb = agent.redis_connect()
 
@@ -54,10 +177,22 @@ if providers:
         try:
             print(f"### Importing {user} to {os.environ['MODULE_ID']}", file=sys.stderr)
 
+            user_tmpdir = os.path.join(tmpdir, user)
             subprocess.run([
-                '/usr/bin/podman', 'exec', '-w', '/var/piler/imap', '-u', 'piler', 'piler-app',
-                '/usr/bin/pilerimport', '-Z', '200', *timestamp , '-i',  'imap://'+ip_address, '-u',  f'{user}*vmail', '-p', password, '-P', '143'
-            ])
+                '/usr/bin/podman', 'exec', '-u', 'piler', 'piler-app',
+                'rm', '-rf', user_tmpdir
+            ], check=True)
+
+            subprocess.run([
+                '/usr/bin/podman', 'exec', '-i', '-u', 'piler', 'piler-app',
+                'python3', '-', ip_address, f'{user}*vmail', password,
+                user_tmpdir, batch_bytes, batch_count, search
+            ], input=FETCH_AND_IMPORT, text=True, check=True)
+
+            subprocess.run([
+                '/usr/bin/podman', 'exec', '-u', 'piler', 'piler-app',
+                'rm', '-rf', user_tmpdir
+            ], check=False)
         except Exception as e:
             print(f"### Error to import {user} to {os.environ['MODULE_ID']}: {e}", file=sys.stderr)
             continue
