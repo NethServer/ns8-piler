@@ -19,14 +19,17 @@ import argparse
 # hand pilerimport plain .eml files instead, which is the path upstream
 # documents as the reliable one.
 FETCH_AND_IMPORT = r'''
-import imaplib, os, re, shutil, subprocess, sys
+import imaplib, os, re, shutil, subprocess, sys, time
 
 # A single FETCH response line carries a whole message, well past the 10k default.
 imaplib._MAXLINE = 10000000
 
-server, user, password = sys.argv[1], sys.argv[2], sys.argv[3]
-tmpdir, batch_bytes, batch_count = sys.argv[4], int(sys.argv[5]), int(sys.argv[6])
-search = sys.argv[7] if len(sys.argv) > 7 else 'ALL'
+# IMAP_PASSWORD is prepended to this script on stdin rather than passed as an
+# argument: argv is world-readable in ps, and it surfaced in a traceback.
+server, user = sys.argv[1], sys.argv[2]
+tmpdir, batch_bytes, batch_count = sys.argv[3], int(sys.argv[4]), int(sys.argv[5])
+delay_ms, la_limit = sys.argv[6], sys.argv[7]
+search = sys.argv[8] if len(sys.argv) > 8 else 'ALL'
 
 imported = 0
 failed = 0
@@ -35,10 +38,14 @@ def flush(batch_dir, n):
     """Import one batch, drop its files, and report how many made it in."""
     if n == 0:
         return 0, 0
-    # pilerimport writes scratch files into the current directory and aborts
-    # with "cannot write current directory!" if it is not writable.
-    rc = subprocess.run(['/usr/bin/pilerimport', '-d', batch_dir],
-                        cwd=batch_dir).returncode
+    # -Z paces the archiver, -z parks it while the load average is too high;
+    # both live in import_message(), shared by the directory path. pilerimport
+    # writes scratch files into the current directory and aborts with
+    # "cannot write current directory!" if it is not writable.
+    cmd = ['/usr/bin/pilerimport', '-Z', delay_ms, '-d', batch_dir]
+    if la_limit != '0':
+        cmd[1:1] = ['-z', la_limit]
+    rc = subprocess.run(cmd, cwd=batch_dir).returncode
     shutil.rmtree(batch_dir, ignore_errors=True)
     if rc != 0:
         print(f'pilerimport failed on a batch of {n} (rc={rc})', file=sys.stderr)
@@ -46,7 +53,7 @@ def flush(batch_dir, n):
     return n, 0
 
 conn = imaplib.IMAP4(server, 143)
-conn.login(user, password)
+conn.login(user, IMAP_PASSWORD)
 
 # No skip list: pilerimport -i archived every folder, including Trash and Junk,
 # so filtering any of them out here would silently shrink what gets archived.
@@ -71,11 +78,15 @@ for folder in names:
         continue
     nums = data[0].split()
 
-    # RFC822.SIZE costs one round trip and no bodies, so batches can be capped
-    # by actual bytes instead of a message count that says nothing about size.
+    # RFC822.SIZE carries no bodies, so batches can be capped by actual bytes
+    # instead of a message count that says nothing about size. Ask in slices:
+    # one FETCH listing every message number is rejected as "Too long argument"
+    # on a mailbox of any real size.
     sizes = {}
-    rc, data = conn.fetch(b','.join(nums), '(RFC822.SIZE)')
-    if rc == 'OK':
+    for i in range(0, len(nums), 500):
+        rc, data = conn.fetch(b','.join(nums[i:i + 500]), '(RFC822.SIZE)')
+        if rc != 'OK':
+            continue
         for item in data:
             if not isinstance(item, bytes):
                 continue
@@ -100,7 +111,17 @@ for folder in names:
             os.makedirs(batch_dir, exist_ok=True)
             n = bytes_held = 0
 
-        rc, data = conn.fetch(num, '(RFC822)')
+        # pilerimport's -Z only paces its own side; it used to fetch the mail
+        # too, so the same delay has to cover the download or the IMAP server
+        # takes the whole batch back to back.
+        if delay_ms != '0':
+            time.sleep(int(delay_ms) / 1000)
+
+        try:
+            rc, data = conn.fetch(num, '(RFC822)')
+        except imaplib.IMAP4.error as e:
+            print(f'cannot fetch message {num.decode()} in {folder}: {e}', file=sys.stderr)
+            continue
         if rc != 'OK' or not data or not isinstance(data[0], tuple):
             print(f'cannot fetch message {num.decode()} in {folder}', file=sys.stderr)
             continue
@@ -150,6 +171,11 @@ elif args.before is not None:
 tmpdir = os.getenv('PILER_IMPORT_TMPDIR', '/var/piler/imap')
 batch_bytes = os.getenv('PILER_IMPORT_BATCH_BYTES', str(256 * 1024 * 1024))
 batch_count = os.getenv('PILER_IMPORT_BATCH_COUNT', '200')
+# 200ms between messages, as the pilerimport call this replaced already used.
+# PILER_IMPORT_LOAD_LIMIT additionally parks the archiver while the 1 minute
+# load average sits above it; 0 leaves that off.
+delay_ms = os.getenv('PILER_IMPORT_DELAY_MS', '200')
+la_limit = os.getenv('PILER_IMPORT_LOAD_LIMIT', '0')
 
 rdb = agent.redis_connect()
 
@@ -183,11 +209,14 @@ if providers:
                 'rm', '-rf', user_tmpdir
             ], check=True)
 
+            # The password rides in on stdin with the script, never in argv:
+            # repr() quotes it safely whatever it contains.
             subprocess.run([
                 '/usr/bin/podman', 'exec', '-i', '-u', 'piler', 'piler-app',
-                'python3', '-', ip_address, f'{user}*vmail', password,
-                user_tmpdir, batch_bytes, batch_count, search
-            ], input=FETCH_AND_IMPORT, text=True, check=True)
+                'python3', '-', ip_address, f'{user}*vmail',
+                user_tmpdir, batch_bytes, batch_count, delay_ms, la_limit, search
+            ], input=f'IMAP_PASSWORD = {password!r}\n' + FETCH_AND_IMPORT,
+               text=True, check=True)
 
             subprocess.run([
                 '/usr/bin/podman', 'exec', '-u', 'piler', 'piler-app',
