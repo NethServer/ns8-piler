@@ -51,9 +51,8 @@ Only the files whose purpose is not obvious from the name:
 - `config/syslog-to-stderr.c` — the `LD_PRELOAD` shim, see below.
 - `config/exit-on-fatal-listener.py` — the `exit-on-fatal` listener.
 - `dockerfile-vars.sh` — reads `PILER_VERSION`/`BASE_IMAGE` back out of the
-  Dockerfile and derives `piler_server_tag`; sourced by this directory's own
-  `build-images.sh` and by the module's `../build-images.sh`, so the image tag
-  the module labels can never drift from what this Dockerfile actually builds.
+  Dockerfile; sourced by this directory's own `build-images.sh` for its local
+  dev tags.
 - `.hadolint.yaml` — Dockerfile lint policy, with the reason for each ignore.
 
 The CI workflows that build, lint and validate this image live at the repo
@@ -301,10 +300,11 @@ This directory builds and validates the image; the orchestration and upgrade
 logic around it is the rest of this repository, the
 [ns8-piler module](https://github.com/NethServer/ns8-piler).
 
-The image tag is `<PILER_VERSION>-<BASE_IMAGE_TAG's date>`, e.g.
-`1.4.9-20260610`, computed by `dockerfile-vars.sh`. `build-piler-server.yml`
-(root `.github/workflows/`) pushes it on every push to `main` and on every git
-tag, so there is no separate release step to run by hand.
+The image is tagged with the ns8-piler ref that built it (branch name, or the
+module's own release tag) - the same `IMAGETAG` the module image gets, so its
+`org.nethserver.images` label always names a tag that was actually pushed.
+`build-piler-server.yml` (root `.github/workflows/`) pushes it on every push,
+plus `latest` on `main`, so there is no separate release step to run by hand.
 
 ## Debugging
 

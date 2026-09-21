@@ -16,15 +16,9 @@ repobase="${REPOBASE:-ghcr.io/nethserver}"
 reponame="piler"
 
 # Was a moving "latest-<sha>" tag edited by hand on every piler-server change.
-# IMAGETAG (set by CI) is the tag build-piler-server.yml just pushed for this
-# same ref, so it always exists; only a local manual build falls back to the
-# version derived from the Dockerfile.
-if [ -n "${IMAGETAG:-}" ]; then
-    piler_server_tag=$(echo "${IMAGETAG}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+|-+$//g')
-else
-    piler_server_tag=$(cd piler-server && . ./dockerfile-vars.sh && printf '%s' "${piler_server_tag}")
-fi
-: "${piler_server_tag:?cannot derive the piler-server tag}"
+# build-piler-server.yml pushes this same IMAGETAG for piler-server, so it
+# always exists for whatever ref is being built.
+piler_server_tag=$(echo "${IMAGETAG:-latest}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+|-+$//g')
 
 # Create a new empty container image
 container=$(buildah from scratch)
