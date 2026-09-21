@@ -34,6 +34,10 @@ search = sys.argv[7] if len(sys.argv) > 7 else 'ALL'
 batch_dir = os.path.join(tmpdir, 'batch')
 failed = 0
 
+# Start from a clean slate: a run killed mid-batch leaves .eml behind, and
+# importing them again would only make pilerimport count duplicates.
+shutil.rmtree(tmpdir, ignore_errors=True)
+
 def import_batch():
     """Import what has been downloaded, then start the directory over."""
     # -Z paces the archiver, -z parks it while the load average is too high;
@@ -105,6 +109,7 @@ for folder in names:
         failed += import_batch()
 
 conn.logout()
+shutil.rmtree(tmpdir, ignore_errors=True)
 if failed:
     print(f'{failed} batch(es) failed to import', file=sys.stderr)
     sys.exit(1)
@@ -145,6 +150,8 @@ batch = os.getenv('PILER_IMPORT_BATCH', '20')
 # it; 0 leaves that off.
 delay_ms = os.getenv('PILER_IMPORT_DELAY_MS', '200')
 la_limit = os.getenv('PILER_IMPORT_LOAD_LIMIT', '0')
+# list-user-mailboxes reports root, which has no mailbox dovecot will open.
+skip_users = set(filter(None, os.getenv('PILER_IMPORT_SKIP_USERS', 'root').split(',')))
 
 rdb = agent.redis_connect()
 
@@ -161,7 +168,8 @@ if providers:
     agent.assert_exp(response['exit_code'] == 0)
 
     # Extract user names into a list
-    user_list = [user_data["user"] for user_data in response['output'].get("user_mailboxes")]
+    user_list = [user_data["user"] for user_data in response['output'].get("user_mailboxes")
+                 if user_data["user"] not in skip_users]
 
     # retrieve the vmail password
     response = agent.tasks.run(f"module/{mail_id}", action='reveal-master-credentials')
@@ -172,24 +180,13 @@ if providers:
         try:
             print(f"### Importing {user} to {os.environ['MODULE_ID']}", file=sys.stderr)
 
-            user_tmpdir = os.path.join(tmpdir, user)
-            subprocess.run([
-                '/usr/bin/podman', 'exec', '-u', 'piler', 'piler-app',
-                'rm', '-rf', user_tmpdir
-            ], check=True)
-
             # repr() quotes the password safely whatever it contains.
             subprocess.run([
                 '/usr/bin/podman', 'exec', '-i', '-u', 'piler', 'piler-app',
                 'python3', '-', ip_address, f'{user}*vmail',
-                user_tmpdir, batch, delay_ms, la_limit, search
+                os.path.join(tmpdir, user), batch, delay_ms, la_limit, search
             ], input=f'IMAP_PASSWORD = {password!r}\n' + FETCH_AND_IMPORT,
                text=True, check=True)
-
-            subprocess.run([
-                '/usr/bin/podman', 'exec', '-u', 'piler', 'piler-app',
-                'rm', '-rf', user_tmpdir
-            ], check=False)
         except subprocess.CalledProcessError as e:
             # The child already said what went wrong; repeating str(e) would
             # dump the whole podman command line after it.
