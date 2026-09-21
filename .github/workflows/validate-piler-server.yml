@@ -39,11 +39,10 @@ jobs:
           REPOBASE="ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
 
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            if [ "${HEAD_BRANCH}" = "${{ github.event.repository.default_branch }}" ]; then
-              tag="latest"
-            else
-              tag=$(echo "${HEAD_BRANCH}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+|-+$//g')
-            fi
+            # Must match build-piler-server.yml's own tag exactly: literal ref
+            # name, never remapped to "latest" (that's pushed as an extra alias
+            # only, not the primary tag sha_tag is built from).
+            tag=$(echo "${HEAD_BRANCH}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+|-+$//g')
             image_tag="${tag}-${SHA:0:7}"
           else
             image_tag="${MANUAL_TAG}"

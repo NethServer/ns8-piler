@@ -55,16 +55,18 @@ jobs:
           REPOBASE="ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
           image="${REPOBASE}/piler-server"
 
-          if [ "${REF_NAME}" = "${DEFAULT_BRANCH}" ]; then
-            tag="latest"
-          else
-            tag=$(echo "${REF_NAME}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+|-+$//g')
-          fi
+          # Same primary tag publish-branch.yml gives the module image (literal
+          # ref name), so build-images.sh's org.nethserver.images label can
+          # reference ${IMAGETAG} and always find a real, just-pushed image.
+          tag=$(echo "${REF_NAME}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+|-+$//g')
           short_sha="${SHA:0:7}"
           sha_tag="${tag}-${short_sha}"
 
           # sha_tag: what validate-piler-server.yml pins to, immune to later pushes.
           tags=("${image}:${tag}" "${image}:${sha_tag}")
+          if [ "${REF_NAME}" = "${DEFAULT_BRANCH}" ]; then
+            tags+=("${image}:latest")
+          fi
           # A feature branch must never overwrite the version tag installed clusters pull.
           if [ "${REF_NAME}" = "${DEFAULT_BRANCH}" ] || [ "${REF_TYPE}" = "tag" ]; then
             tags+=("${image}:${PILER_SERVER_TAG}")
