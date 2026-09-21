@@ -26,3 +26,26 @@ jobs:
     uses: NethServer/ns8-github-actions/.github/workflows/scan-with-trivy.yml@v1
     with:
       images: ${{ needs.module.outputs.images }}
+  summary:
+    # publish-branch.yml (the job that actually builds and pushes the module
+    # image) is an external reusable workflow with no step summary of its
+    # own - only a ::notice buried in its logs. module-info.yml already
+    # resolved the pushed image afterward, so surface it here instead.
+    needs: module
+    runs-on: ubuntu-latest
+    steps:
+      - name: Module images
+        env:
+          IMAGE: ${{ needs.module.outputs.image }}
+          IMAGES: ${{ needs.module.outputs.images }}
+        run: |
+          {
+            echo "### piler module image"
+            echo '```'
+            echo "${IMAGE}"
+            echo '```'
+            echo "### org.nethserver.images (module + piler-server + sidecars)"
+            echo '```'
+            echo "${IMAGES}" | jq -r '.[]'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
