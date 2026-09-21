@@ -4,9 +4,7 @@ Start and configure a piler instance.
 - The module runs [piler](https://github.com/jsuto/piler) inside a container
   image this repo builds itself, `piler-server/` - see
   [piler-server/README.md](piler-server/README.md) for the image (rootless
-  design, environment variables, CI). `build-images.sh` reads the image's
-  version tag straight from `piler-server/Dockerfile` via
-  `piler-server/dockerfile-vars.sh`, so the two can never drift apart.
+  design, environment variables, CI).
 - To raise an issue against piler itself, use [github piler](https://github.com/jsuto/piler).
 
 ## Install
@@ -111,7 +109,7 @@ builds `ghcr.io/nethserver/piler-server` from `piler-server/Dockerfile`, then
 `publish-images.yml` builds the module image `ghcr.io/nethserver/piler`, whose
 `org.nethserver.images` label names the tag the first job just pushed. See
 [piler-server/README.md](piler-server/README.md#ci) for the piler-server-specific
-workflows (lint, the compose end-to-end suite, and the Renovate checksum fill-in).
+workflows (lint and the compose end-to-end suite).
 
 ## Running tests locally
 

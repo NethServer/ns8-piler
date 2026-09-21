@@ -339,12 +339,11 @@ only reads workflows from there):
 | `build-piler-server.yml` | called from `publish-images.yml` | builds and pushes, before the module image is built so its label can reference the tag this run just pushed |
 | `validate-piler-server.yml` | `publish-images.yml` ("Publish images") completing, or `workflow_dispatch` | starts the full compose stack and exercises it |
 
-`build-piler-server.yml` tags `latest` only on the default branch, otherwise a
-sanitized branch name; every build also gets an immutable sha tag, which is
-what `validate-piler-server.yml` pins to. It also pushes the version tag
-(`<PILER_VERSION>-<BASE_IMAGE_TAG's date>`) from `main` or a git tag ref -
-never from a feature branch, so a stale branch build can't overwrite the tag
-installed clusters pull.
+`build-piler-server.yml` always pushes the literal ref name (branch or git tag)
+as the primary tag, plus `latest` as an extra alias on the default branch -
+this is the same `IMAGETAG` the module gets, so `org.nethserver.images` always
+names a tag that was actually just pushed. Every build also gets an immutable
+`<tag>-<short sha>` tag, which is what `validate-piler-server.yml` pins to.
 
 `validate-piler-server.yml` logs in as admin and auditor, sends a real mail and
 checks it is archived and searchable, restarts the stack and checks the mail
