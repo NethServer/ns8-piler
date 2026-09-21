@@ -1,0 +1,23 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Copy NS8-generated configs into piler_etc, avoiding bind-mount conflicts.
+#
+# podman unshare needed: volume files owned by subuid-mapped uid 1000,
+# plain cp/rm fails with Permission denied.
+#
+# chown whole volume: container-generated files can be root-owned from
+# an older root-run image, breaking entrypoint.sh's sed under uid 1000.
+
+podman volume create piler_etc 2>/dev/null || true
+VOLPATH=$(podman volume inspect piler_etc --format '{{.Mountpoint}}')
+
+# "piler_etc" here is the local staged-config dir (NS8 output), NOT the
+# podman volume above - same name, different path, source != destination.
+podman unshare cp piler_etc/config-site.php "${VOLPATH}/config-site.php"
+podman unshare cp piler_etc/piler.conf "${VOLPATH}/piler.conf"
+podman unshare chown -R 1000:1000 "${VOLPATH}"
