@@ -53,7 +53,13 @@ def flush(batch_dir, n):
     return n, 0
 
 conn = imaplib.IMAP4(server, 143)
-conn.login(user, IMAP_PASSWORD)
+try:
+    conn.login(user, IMAP_PASSWORD)
+except imaplib.IMAP4.error as e:
+    # list-user-mailboxes reports accounts that have no mailbox to log into,
+    # root among them; say so in one line instead of a traceback.
+    print(f'cannot log in as {user}, skipping: {e}', file=sys.stderr)
+    sys.exit(2)
 
 # No skip list: pilerimport -i archived every folder, including Trash and Junk,
 # so filtering any of them out here would silently shrink what gets archived.
@@ -222,6 +228,11 @@ if providers:
                 '/usr/bin/podman', 'exec', '-u', 'piler', 'piler-app',
                 'rm', '-rf', user_tmpdir
             ], check=False)
+        except subprocess.CalledProcessError as e:
+            # The child already said what went wrong; repeating str(e) would
+            # dump the whole podman command line after it.
+            print(f"### Skipped {user}, import exited {e.returncode}", file=sys.stderr)
+            continue
         except Exception as e:
             print(f"### Error to import {user} to {os.environ['MODULE_ID']}: {e}", file=sys.stderr)
             continue
