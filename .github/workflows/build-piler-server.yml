@@ -63,10 +63,3 @@ jobs:
             "${args[@]}" \
             --push piler-server
           echo "image=${image}:${sha_tag}" >> "$GITHUB_OUTPUT"
-
-          {
-            echo "### piler-server image"
-            echo '```'
-            printf '%s\n' "${tags[@]}"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
