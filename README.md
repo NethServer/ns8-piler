@@ -143,6 +143,12 @@ To import only a time range, pass a unix timestamp. The emails are filtered on t
 
 The import can be run again safely: piler skips the emails it already has. Emails without a `Message-ID` header are the exception, piler archives them again on every run.
 
+Only one import runs at a time. Stopping it with Ctrl-C finishes the batch in progress first.
+
+To go easier on a busy server, raise the pause between two emails, 200 ms by default. Keep it under 1000 ms: from 1000 up, pilerimport silently skips the pause.
+
+    runagent -m piler1 env PILER_IMPORT_DELAY_MS=500 import-emails
+
 ## Recreate The Index Data Files
 
 This is a troubleshooting task, use it only when you have to or you are advised to rebuild the manticore index from scratch.
