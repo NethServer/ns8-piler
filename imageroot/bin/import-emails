@@ -12,6 +12,7 @@ import time
 import os
 import agent
 import argparse
+import fcntl
 
 parser = argparse.ArgumentParser(description='Script for importing user mailboxes from an IMAP server into the mail piler archive')
 parser.add_argument('-A', '--after', metavar='AFTER_TIMESTAMP', type=str,
@@ -50,6 +51,15 @@ delay_ms = os.getenv('PILER_IMPORT_DELAY_MS', '200')
 la_limit = os.getenv('PILER_IMPORT_LOAD_LIMIT', '0')
 # list-user-mailboxes reports root, which has no mailbox dovecot will open.
 skip_users = set(filter(None, os.getenv('PILER_IMPORT_SKIP_USERS', 'root').split(',')))
+
+# Two runs would share each user's spool under tmpdir, and the stop handler
+# signals every fetcher in the container, so only one import runs at a time.
+lock = open('import-emails.lock', 'w')
+try:
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    print("Another import is already running, try again when it is done", file=sys.stderr)
+    sys.exit(1)
 
 rdb = agent.redis_connect()
 
