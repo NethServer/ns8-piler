@@ -6,6 +6,9 @@ Resource    api.resource
 ${restore_user}    u3
 ${mail_domain}    domain.test
 ${smtp_url}    smtp://127.0.0.1:10587
+# Extra variables for import-emails, such as PILER_IMPORT_DELAY_MS=1 to go
+# through a large mailbox quickly on a test host.
+${import_env}    ${EMPTY}
 
 *** Keywords ***
 Piler query
@@ -166,7 +169,7 @@ Import after the restore adds no duplicates
     [Setup]    The restore has run
     ${before} =    Piler query    SELECT count(*) FROM metadata WHERE message_id <> piler_id;
     ${out}    ${err}    ${rc} =    Execute Command
-    ...    runagent -m ${piler_module_id} import-emails
+    ...    runagent -m ${piler_module_id} env ${import_env} import-emails
     ...    return_rc=True    return_stderr=True
     Log    ${err}
     Should Be Equal As Integers    ${rc}    0
