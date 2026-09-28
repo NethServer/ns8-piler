@@ -14,8 +14,9 @@ ${TA}    1600000000
 *** Keywords ***
 Import emails
     [Arguments]    @{args}
+    ${cmd_args} =    Catenate    @{args}
     ${out}    ${err}    ${rc} =    Execute Command
-    ...    runagent -m ${piler_module_id} import-emails @{args}
+    ...    runagent -m ${piler_module_id} import-emails ${cmd_args}
     ...    return_rc=True    return_stderr=True
     Log    ${err}
     Should Be Equal As Integers    ${rc}    0
