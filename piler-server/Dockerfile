@@ -63,7 +63,7 @@ FROM ${BASE_IMAGE} AS runtime
 # otherwise the base image's own image.version (Ubuntu's) leaks through.
 ARG PILER_VERSION
 
-LABEL org.opencontainers.image.source="https://github.com/NethServer/piler-server" \
+LABEL org.opencontainers.image.source="https://github.com/NethServer/ns8-piler" \
       org.opencontainers.image.authors="Stephane de Labrusse <stephane.delabrusse@nethesis.it>" \
       org.opencontainers.image.title="piler mail archiving server" \
       org.opencontainers.image.description="Rootless piler (email archiver) image: nginx, php-fpm and supervisord, running against external mariadb, manticore and memcached containers" \
