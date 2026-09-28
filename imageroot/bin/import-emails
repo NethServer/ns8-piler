@@ -63,9 +63,17 @@ if providers:
     response = agent.tasks.run(f"module/{mail_id}", action='list-user-mailboxes')
     agent.assert_exp(response['exit_code'] == 0)
 
-    # Extract user names into a list
-    user_list = [user_data["user"] for user_data in response['output'].get("user_mailboxes")
-                 if user_data["user"] not in skip_users]
+    user_list = []
+    for user_data in response['output'].get("user_mailboxes"):
+        user = user_data["user"]
+        if user in skip_users:
+            print(f"### Skipped {user}, listed in PILER_IMPORT_SKIP_USERS", file=sys.stderr)
+        # A disabled mailbox is listed with "enabled": false and dovecot refuses
+        # its login, the user may even be gone from the account provider.
+        elif not user_data.get("enabled", True):
+            print(f"### Skipped {user}, mailbox is disabled", file=sys.stderr)
+        else:
+            user_list.append(user)
 
     # retrieve the vmail password
     response = agent.tasks.run(f"module/{mail_id}", action='reveal-master-credentials')
