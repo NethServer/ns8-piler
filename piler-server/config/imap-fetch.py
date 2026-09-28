@@ -18,6 +18,7 @@ import imaplib
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 
@@ -32,6 +33,18 @@ password = sys.stdin.readline().rstrip('\n')
 
 batch_dir = os.path.join(tmpdir, 'batch')
 failed = 0
+stopping = False
+
+
+# Only raise a flag: killing pilerimport mid-message could leave it half
+# stored, so the batch in hand is imported and the run ends after it.
+def stop(signum, frame):
+    global stopping
+    stopping = True
+
+
+signal.signal(signal.SIGTERM, stop)
+signal.signal(signal.SIGINT, stop)
 
 
 def import_batch():
@@ -90,6 +103,8 @@ shutil.rmtree(tmpdir, ignore_errors=True)
 os.makedirs(batch_dir, exist_ok=True)
 
 for folder in names:
+    if stopping:
+        break
     if conn.select(folder, readonly=True)[0] != 'OK':
         print(f'cannot open folder {folder}, skipping', file=sys.stderr)
         continue
@@ -102,6 +117,8 @@ for folder in names:
 
     for i in range(0, len(nums), batch):
         for num in nums[i:i + batch]:
+            if stopping:
+                break
             try:
                 rc, data = conn.fetch(num, '(RFC822)')
             except imaplib.IMAP4.error as e:
@@ -117,9 +134,14 @@ for folder in names:
         # Empty when every fetch in this slice failed; nothing to hand over.
         if os.listdir(batch_dir):
             failed += import_batch()
+        if stopping:
+            break
 
 conn.logout()
 shutil.rmtree(tmpdir, ignore_errors=True)
+if stopping:
+    print('stopped on request, the rest of the mailbox is not imported', file=sys.stderr)
+    sys.exit(143)
 if failed:
     print(f'{failed} batch(es) failed to import', file=sys.stderr)
     sys.exit(1)

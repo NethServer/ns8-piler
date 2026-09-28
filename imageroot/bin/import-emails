@@ -5,8 +5,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
+import signal
 import subprocess
 import sys
+import time
 import os
 import agent
 import argparse
@@ -85,17 +87,37 @@ response = agent.tasks.run(f"module/{mail_id}", action='reveal-master-credential
 agent.assert_exp(response['exit_code'] == 0)
 password = response['output']['password']
 
+stopping = False
+
+
+# podman exec does not forward signals, so the fetcher would go on inside the
+# container after this script is gone. Ask it to stop, then wait for it below.
+def stop(signum, frame):
+    global stopping
+    stopping = True
+    print("### Stopping after the current batch", file=sys.stderr)
+    subprocess.run(['/usr/bin/podman', 'exec', 'piler-app',
+                    'pkill', '-TERM', '-f', '/usr/local/bin/piler-imap-fetch'])
+
+
+signal.signal(signal.SIGTERM, stop)
+signal.signal(signal.SIGINT, stop)
+
 for user in user_list:
+    if stopping:
+        break
     try:
         print(f"### Importing {user} to {os.environ['MODULE_ID']}", file=sys.stderr)
 
         # The password goes in on stdin: argv is world-readable in ps, and
-        # it surfaced in a traceback when it was an argument.
+        # it surfaced in a traceback when it was an argument. Own session: a
+        # Ctrl-C would otherwise kill the podman client and cut off the output
+        # of the batch still being imported.
         subprocess.run([
             '/usr/bin/podman', 'exec', '-i', '-u', 'piler', 'piler-app',
             '/usr/local/bin/piler-imap-fetch', ip_address, f'{user}*vmail',
             os.path.join(tmpdir, user), batch, delay_ms, la_limit, *time_filter
-        ], input=password + '\n', text=True, check=True)
+        ], input=password + '\n', text=True, check=True, start_new_session=True)
     except subprocess.CalledProcessError as e:
         # The child already said what went wrong; repeating str(e) would
         # dump the whole podman command line after it.
@@ -104,3 +126,14 @@ for user in user_list:
     except Exception as e:
         print(f"### Error to import {user} to {os.environ['MODULE_ID']}: {e}", file=sys.stderr)
         continue
+
+if stopping:
+    # systemctl stop signals the whole cgroup, podman client included, which
+    # then returns while the fetcher is still finishing its batch.
+    for _ in range(120):
+        if subprocess.run(['/usr/bin/podman', 'exec', 'piler-app', 'pgrep', '-f',
+                           '/usr/local/bin/piler-imap-fetch'],
+                          stdout=subprocess.DEVNULL).returncode != 0:
+            break
+        time.sleep(1)
+    sys.exit(143)
