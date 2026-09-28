@@ -24,7 +24,10 @@ Index total
     ...    runagent -m ${piler_module_id} podman exec manticore-app mysql -h127.0.0.1 -P9306 -N -B -e "SELECT count(*) FROM piler1"
     ...    return_rc=True
     Should Be Equal As Integers    ${rc}    0
-    RETURN    ${out.strip()}
+    # The mysql client in the manticore image draws a table even with -B, and
+    # pads the number differently from one version to the next.
+    ${count} =    Evaluate    re.search(r'\d+', $out).group()    modules=re
+    RETURN    ${count}
 
 Key checksum
     ${out}    ${rc} =    Execute Command
