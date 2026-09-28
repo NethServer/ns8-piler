@@ -16,6 +16,11 @@ Backend URL is reachable
     Should Be Equal As Integers    ${rc}  0
 
 
+Web UI reaches its database
+    ${out} =    Execute Command    curl -s ${backend_url}
+    Should Contain    ${out}    content="piler email archiver"
+    Should Not Contain    ${out}    SQLSTATE
+
 *** Test Cases ***
 Check if piler is installed correctly
     ${output}  ${rc} =    Execute Command    add-module ${IMAGE_URL} 1
@@ -81,3 +86,11 @@ Verify if piler has received the email previously sent
         Sleep    1s
     END
     Should Be True    ${success}    the counter is equal to 1
+
+Reload keeps the database settings
+    # A reload used to rewrite config-site.php without the settings the
+    # entrypoint adds, and the web UI lost its database until a restart.
+    ${rc} =    Execute Command    runagent -m ${piler_module_id} systemctl --user reload piler-app
+    ...    return_rc=True    return_stdout=False
+    Should Be Equal As Integers    ${rc}    0
+    Wait Until Keyword Succeeds    60 seconds    2 seconds    Web UI reaches its database
