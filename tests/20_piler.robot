@@ -90,7 +90,12 @@ Verify if piler has received the email previously sent
 Reload keeps the database settings
     # A reload used to rewrite config-site.php without the settings the
     # entrypoint adds, and the web UI lost its database until a restart.
+    ${started} =    Execute Command    runagent -m ${piler_module_id} podman inspect piler-app --format '{{.State.StartedAt}}'
     ${rc} =    Execute Command    runagent -m ${piler_module_id} systemctl --user reload piler-app
     ...    return_rc=True    return_stdout=False
     Should Be Equal As Integers    ${rc}    0
-    Wait Until Keyword Succeeds    60 seconds    2 seconds    Web UI reaches its database
+    # A broken reload took the pod down some seconds later, not at once.
+    Sleep    20 seconds
+    ${after} =    Execute Command    runagent -m ${piler_module_id} podman inspect piler-app --format '{{.State.StartedAt}}'
+    Should Be Equal    ${after}    ${started}    piler-app restarted after the reload
+    Web UI reaches its database

@@ -34,7 +34,9 @@ does not say.
 - `podman exec` does not forward signals. Stop a process inside the container
   yourself, as `import-emails` does.
 - A reload must run `fix_configs` from `/entrypoint.sh` again: the template
-  lacks the settings the entrypoint adds from `--env`.
+  lacks the settings the entrypoint adds from `--env`. Never HUP piler-app:
+  supervisord restarts php-fpm, which finds its socket still held, goes FATAL
+  and takes the pod down. `rc.piler reload` rereads piler.conf.
 - piler logs only through syslog. `config/syslog-to-stderr.c` is an
   `LD_PRELOAD` shim that sends it to stderr, since a rootless container has no
   `/dev/log`.
