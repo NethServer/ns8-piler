@@ -60,6 +60,10 @@ Archived subject count should be
     ${count} =    Archived subject count    ${subject}
     Should Be Equal    ${count}    ${expected}
 
+The restore has run
+    # Without it the checks below would pass against the old module.
+    Should Be True    ${restored}    the restore did not complete
+
 *** Test Cases ***
 Record the archive before the backup
     ${total} =    Piler query    SELECT count(*) FROM metadata;
@@ -78,6 +82,7 @@ Record the archive before the backup
     Set Suite Variable    ${module_uuid}    ${uuid}
     Set Suite Variable    ${module_node}    ${node}
     Set Suite Variable    ${old_module_id}    ${piler_module_id}
+    Set Suite Variable    ${restored}    ${FALSE}
 
 Use the node local backup repository
     # create-cluster starts rclone-webdav on every node; a repository URL
@@ -91,7 +96,7 @@ Use the node local backup repository
         Set Suite Variable    ${repository_created}    ${FALSE}
     ELSE
         ${out} =    Run task    cluster/add-backup-repository
-        ...    {"provider":"cluster","name":"piler-test","url":"${url}","password":"","parameters":{"type":"local"}}
+        ...    {"provider":"cluster","name":"piler-test","url":"${url}","password":"","parameters":{}}
         Set Suite Variable    ${repository}    ${out}[id]
         Set Suite Variable    ${repository_created}    ${TRUE}
     END
@@ -115,14 +120,17 @@ Restore piler in place
     Should Be Equal    ${out}[module_uuid]    ${module_uuid}
     Should Not Be Equal    ${out}[module_id]    ${old_module_id}
     Set Global Variable    ${piler_module_id}    ${out}[module_id]
+    Set Suite Variable    ${restored}    ${TRUE}
     ${rc} =    Execute Command    runagent -m ${old_module_id} true
     ...    return_rc=True    return_stdout=False
     Should Not Be Equal As Integers    ${rc}    0    ${old_module_id} must be gone after a replace
 
 Piler runs again after the restore
+    [Setup]    The restore has run
     Wait Until Keyword Succeeds    120 seconds    5 seconds    Piler daemons are running
 
 The restored piler answers on its route
+    [Setup]    The restore has run
     # The restore runs configure-module again, which recreates the route.
     ${traefik} =    Execute Command    redis-cli get node/${module_node}/default_instance/traefik
     ${route} =    Run task    module/${traefik.strip()}/get-route    {"instance":"${piler_module_id}"}
@@ -130,6 +138,7 @@ The restored piler answers on its route
     Should Contain    ${out}    content="piler email archiver"
 
 The archive is restored as it was
+    [Setup]    The restore has run
     ${total} =    Piler query    SELECT count(*) FROM metadata;
     Should Be Equal    ${total}    ${archived_total}
     ${index} =    Index total
@@ -140,6 +149,7 @@ The archive is restored as it was
     Should Be Equal    ${message}    ${message_sum}
 
 New email is archived after the restore
+    [Setup]    The restore has run
     # Unique per run: the UUID survives the restore, so a rerun would find the
     # previous run's mail under the same subject.
     ${stamp} =    Evaluate    time.time_ns()    modules=time
@@ -153,6 +163,7 @@ New email is archived after the restore
     ...    Archived subject count should be    ${subject}    1
 
 Import after the restore adds no duplicates
+    [Setup]    The restore has run
     ${before} =    Piler query    SELECT count(*) FROM metadata WHERE message_id <> piler_id;
     ${out}    ${err}    ${rc} =    Execute Command
     ...    runagent -m ${piler_module_id} import-emails
