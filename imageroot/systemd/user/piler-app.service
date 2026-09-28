@@ -42,6 +42,9 @@ ExecStartPost=runagent wait-after-piler
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/piler-app.ctr-id -t 10
 ExecReload=/usr/local/bin/runagent expand-configuration
 ExecReload=/usr/local/bin/runagent copy-piler-config
+# copy-piler-config drops the settings the entrypoint adds from --env, and a
+# HUP never runs the entrypoint again: put them back before signalling.
+ExecReload=/usr/bin/podman exec piler-app bash -c '. /entrypoint.sh && fix_configs'
 ExecReload=/usr/bin/podman kill -s HUP piler-app
 SyslogIdentifier=%u
 ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/piler-app.ctr-id
