@@ -88,10 +88,11 @@ uses that local tag without pulling.
 
 ## Build
 
-Two stages. `fetcher` resolves piler's amd64 `.deb` from the GitHub release
+Three stages. `fetcher` resolves piler's amd64 `.deb` from the GitHub release
 matching `PILER_VERSION`, plus the `supercronic` binary, and verifies both
-against their pinned `sha256`. `runtime` only `COPY --from=fetcher`s those two
-artifacts, so the fetch tooling never reaches the final image. amd64 only.
+against their pinned `sha256`. `shim` compiles `config/syslog-to-stderr.c`
+into `syslog-to-stderr.so`. `runtime` only copies those artifacts in, so the
+fetch and build tooling never reaches the final image. amd64 only.
 
 Set `ENGINE=docker|podman|buildah` to pick the engine (auto-detected, prefers
 podman), and `REPOBASE`/`IMAGETAG` for the image name and extra tag. This
@@ -315,7 +316,8 @@ shows it all, no shell needed inside.
 On a stuck or crash-looping container:
 
 - Stuck at `health: starting` past the 15s `start_period`, or `unhealthy`: the
-  healthcheck (`curl -s smtp://localhost/`) is failing. Check nginx started.
+  healthcheck (`curl -fsS http://localhost/`, then `smtp://localhost:25/`) is
+  failing. Check nginx and piler-smtp started.
 - A crash before "supervisord started": an `entrypoint.sh` step failed, usually
   a missing env var or a permission error writing into `/etc/piler`.
 - `Permission denied` from `safe_sed`: it needs write permission on the target

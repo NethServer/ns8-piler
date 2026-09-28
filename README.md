@@ -31,6 +31,8 @@ Launch `configure-module`, by setting the following parameters:
 - `host`: a fully qualified domain name for the application
 - `http2https`: enable or disable HTTP to HTTPS redirection
 - `lets_encrypt`: enable or disable Let's Encrypt certificate
+- `mail_server`: UUID of the mail module whose mail piler archives
+- `retention_days`: how many days piler keeps an email
 
 Example:
 
@@ -40,7 +42,8 @@ Example:
       "host": "piler.domain.com",
       "http2https": true,
       "lets_encrypt": false,
-      "mail_server": "c990d0d0-6216-4651-9d0b-d393117d0f7e"
+      "mail_server": "c990d0d0-6216-4651-9d0b-d393117d0f7e",
+      "retention_days": 2557
     }
 EOF
 ```
@@ -62,7 +65,8 @@ api-cli run get-configuration --agent module/piler1 --data null | jq
   "http2https": true,
   "lets_encrypt": false,
   "mail_server": "c990d0d0-6216-4651-9d0b-d393117d0f7e",
-  "mail_server_URL": []
+  "mail_server_URL": [],
+  "retention_days": 2557
 }
 ```
 
@@ -148,6 +152,13 @@ Only one import runs at a time. Stopping it with Ctrl-C finishes the batch in pr
 To go easier on a busy server, raise the pause between two emails, 200 ms by default. Keep it under 1000 ms: from 1000 up, pilerimport silently skips the pause.
 
     runagent -m piler1 env PILER_IMPORT_DELAY_MS=500 import-emails
+
+Other variables, passed the same way:
+
+- `PILER_IMPORT_BATCH`: emails fetched before each pilerimport run, 20 by default.
+- `PILER_IMPORT_LOAD_LIMIT`: pause the archiver while the 1 minute load average is above this value. 0, the default, turns it off.
+- `PILER_IMPORT_SKIP_USERS`: comma separated users never imported, `root` by default.
+- `PILER_IMPORT_TMPDIR`: where emails wait inside the container before import, `/var/piler/imap` by default.
 
 ## Recreate The Index Data Files
 
