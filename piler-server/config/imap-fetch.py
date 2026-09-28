@@ -64,15 +64,25 @@ except imaplib.IMAP4.error as e:
 
 # No skip list: pilerimport -i archived every folder, including Trash and Junk,
 # so filtering any of them out here would silently shrink what gets archived.
-# LIST answers '(\flags) "<separator>" <name>', with the name quoted or, for
-# one holding a quote, sent as a literal split across the tuple.
+# LIST answers '(\flags) "<separator>" <name>'. The name comes as an atom, a
+# quoted string with its own escapes, or a literal split across the tuple.
 names = []
 for f in conn.list()[1]:
-    if isinstance(f, tuple):
+    literal = isinstance(f, tuple)
+    if literal:
         f = re.sub(rb'\{\d+\}$', b'', f[0]) + f[1]
-    m = re.match(r'\([^)]*\) "[^"]+" (.*)', f.decode('utf-8', 'replace'))
-    if m:
-        names.append(m.group(1).strip('"'))
+    m = re.match(r'\(([^)]*)\) (?:"[^"]*"|NIL) (.*)', f.decode('utf-8', 'replace'))
+    if not m:
+        continue
+    # Shared and Public namespace roots are listed but hold no messages.
+    if re.search(r'\\(Noselect|NonExistent)\b', m.group(1), re.I):
+        continue
+    name = m.group(2)
+    # A quoted name is already escaped, send it back as is; anything else gets
+    # quoted here, escaping what a quoted string cannot hold raw.
+    if literal or not name.startswith('"'):
+        name = '"' + name.replace('\\', '\\\\').replace('"', '\\"') + '"'
+    names.append(name)
 
 # Start from a clean slate: a run killed mid-batch leaves .eml behind, and
 # importing them again would only make pilerimport count duplicates.
@@ -80,7 +90,7 @@ shutil.rmtree(tmpdir, ignore_errors=True)
 os.makedirs(batch_dir, exist_ok=True)
 
 for folder in names:
-    if conn.select(f'"{folder}"', readonly=True)[0] != 'OK':
+    if conn.select(folder, readonly=True)[0] != 'OK':
         print(f'cannot open folder {folder}, skipping', file=sys.stderr)
         continue
 
