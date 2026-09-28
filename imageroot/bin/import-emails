@@ -55,47 +55,52 @@ providers = agent.list_service_providers(rdb, 'imap', 'tcp', {
     'module_uuid': os.environ['MAIL_SERVER'],
 })
 
-if providers:
-    mail_id = providers[0]["module_id"]
-    ip_address = providers[0]["host"]
+# A mail server removed or replaced since configure-module leaves a dangling
+# UUID behind; without this the run would end at once and still exit 0.
+if not providers:
+    print(f"No IMAP service found for mail server {os.environ['MAIL_SERVER']}, run configure-module again", file=sys.stderr)
+    sys.exit(1)
 
-    # retrieve the list of users
-    response = agent.tasks.run(f"module/{mail_id}", action='list-user-mailboxes')
-    agent.assert_exp(response['exit_code'] == 0)
+mail_id = providers[0]["module_id"]
+ip_address = providers[0]["host"]
 
-    user_list = []
-    for user_data in response['output'].get("user_mailboxes"):
-        user = user_data["user"]
-        if user in skip_users:
-            print(f"### Skipped {user}, listed in PILER_IMPORT_SKIP_USERS", file=sys.stderr)
-        # A disabled mailbox is listed with "enabled": false and dovecot refuses
-        # its login, the user may even be gone from the account provider.
-        elif not user_data.get("enabled", True):
-            print(f"### Skipped {user}, mailbox is disabled", file=sys.stderr)
-        else:
-            user_list.append(user)
+# retrieve the list of users
+response = agent.tasks.run(f"module/{mail_id}", action='list-user-mailboxes')
+agent.assert_exp(response['exit_code'] == 0)
 
-    # retrieve the vmail password
-    response = agent.tasks.run(f"module/{mail_id}", action='reveal-master-credentials')
-    agent.assert_exp(response['exit_code'] == 0)
-    password = response['output']['password']
+user_list = []
+for user_data in response['output'].get("user_mailboxes"):
+    user = user_data["user"]
+    if user in skip_users:
+        print(f"### Skipped {user}, listed in PILER_IMPORT_SKIP_USERS", file=sys.stderr)
+    # A disabled mailbox is listed with "enabled": false and dovecot refuses
+    # its login, the user may even be gone from the account provider.
+    elif not user_data.get("enabled", True):
+        print(f"### Skipped {user}, mailbox is disabled", file=sys.stderr)
+    else:
+        user_list.append(user)
 
-    for user in user_list:
-        try:
-            print(f"### Importing {user} to {os.environ['MODULE_ID']}", file=sys.stderr)
+# retrieve the vmail password
+response = agent.tasks.run(f"module/{mail_id}", action='reveal-master-credentials')
+agent.assert_exp(response['exit_code'] == 0)
+password = response['output']['password']
 
-            # The password goes in on stdin: argv is world-readable in ps, and
-            # it surfaced in a traceback when it was an argument.
-            subprocess.run([
-                '/usr/bin/podman', 'exec', '-i', '-u', 'piler', 'piler-app',
-                '/usr/local/bin/piler-imap-fetch', ip_address, f'{user}*vmail',
-                os.path.join(tmpdir, user), batch, delay_ms, la_limit, *time_filter
-            ], input=password + '\n', text=True, check=True)
-        except subprocess.CalledProcessError as e:
-            # The child already said what went wrong; repeating str(e) would
-            # dump the whole podman command line after it.
-            print(f"### Skipped {user}, import exited {e.returncode}", file=sys.stderr)
-            continue
-        except Exception as e:
-            print(f"### Error to import {user} to {os.environ['MODULE_ID']}: {e}", file=sys.stderr)
-            continue
+for user in user_list:
+    try:
+        print(f"### Importing {user} to {os.environ['MODULE_ID']}", file=sys.stderr)
+
+        # The password goes in on stdin: argv is world-readable in ps, and
+        # it surfaced in a traceback when it was an argument.
+        subprocess.run([
+            '/usr/bin/podman', 'exec', '-i', '-u', 'piler', 'piler-app',
+            '/usr/local/bin/piler-imap-fetch', ip_address, f'{user}*vmail',
+            os.path.join(tmpdir, user), batch, delay_ms, la_limit, *time_filter
+        ], input=password + '\n', text=True, check=True)
+    except subprocess.CalledProcessError as e:
+        # The child already said what went wrong; repeating str(e) would
+        # dump the whole podman command line after it.
+        print(f"### Skipped {user}, import exited {e.returncode}", file=sys.stderr)
+        continue
+    except Exception as e:
+        print(f"### Error to import {user} to {os.environ['MODULE_ID']}: {e}", file=sys.stderr)
+        continue
