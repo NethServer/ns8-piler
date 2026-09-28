@@ -131,9 +131,17 @@ This can be done by adapting the `/etc/postfix/transport/`
 
 ## Import emails to piler
 
-Previous emails are sent automatically one time to piler after the first configuration, but if you want to launch manually the synchronisation, you can trigger this service in the terminal:
+Piler archives new emails as they are delivered. Emails already in the mailboxes are not imported automatically. To import every mailbox of the configured mail server, run:
 
     runagent -m piler1 import-emails
+
+To import only a time range, pass a unix timestamp. The emails are filtered on their `Date` header:
+
+    runagent -m piler1 import-emails -A 1735689600                 # sent after
+    runagent -m piler1 import-emails -B 1735689600                 # sent before
+    runagent -m piler1 import-emails -A 1704067200 -B 1735689600   # both
+
+The import can be run again safely: piler skips the emails it already has. Emails without a `Message-ID` header are the exception, piler archives them again on every run.
 
 ## Recreate The Index Data Files
 
