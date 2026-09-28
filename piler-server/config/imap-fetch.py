@@ -10,7 +10,7 @@
 # https://github.com/jsuto/piler/issues/506. Importing plain .eml files from a
 # directory is the path upstream documents as the reliable one.
 #
-# Usage: imap-fetch.py <server> <user> <tmpdir> <batch> <delay_ms> <la_limit> [search]
+# Usage: imap-fetch.py <server> <user> <tmpdir> <batch> <delay_ms> <la_limit> [pilerimport args]
 # The password is read from the first line of stdin, never passed in argv,
 # which is world-readable in ps.
 
@@ -26,7 +26,8 @@ imaplib._MAXLINE = 10000000
 
 server, user, tmpdir = sys.argv[1], sys.argv[2], sys.argv[3]
 batch, delay_ms, la_limit = int(sys.argv[4]), sys.argv[5], sys.argv[6]
-search = sys.argv[7] if len(sys.argv) > 7 else 'ALL'
+# Such as -A/-B: pilerimport filters on them itself, as it did in IMAP mode.
+extra_args = sys.argv[7:]
 password = sys.stdin.readline().rstrip('\n')
 
 batch_dir = os.path.join(tmpdir, 'batch')
@@ -39,7 +40,7 @@ def import_batch():
     # both live in import_message(), shared by the directory path. pilerimport
     # writes scratch files into the current directory and aborts with
     # "cannot write current directory!" if it is not writable.
-    cmd = ['/usr/bin/pilerimport', '-Z', delay_ms, '-d', batch_dir]
+    cmd = ['/usr/bin/pilerimport', '-Z', delay_ms, '-d', batch_dir, *extra_args]
     if la_limit != '0':
         # Only when asked for: pilerimport rejects -z 0 outright, even though 0
         # is the value it uses internally to mean "no limit".
@@ -83,7 +84,7 @@ for folder in names:
         print(f'cannot open folder {folder}, skipping', file=sys.stderr)
         continue
 
-    rc, data = conn.search(None, search)
+    rc, data = conn.search(None, 'ALL')
     nums = data[0].split() if rc == 'OK' and data and data[0] else []
     if not nums:
         continue

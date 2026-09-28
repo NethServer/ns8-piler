@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-import datetime
 import subprocess
 import sys
 import os
@@ -20,21 +19,15 @@ parser.add_argument('-B', '--before', metavar='BEFORE_TIMESTAMP', type=str,
 
 args = parser.parse_args()
 
-
-# IMAP SEARCH takes a DD-Mon-YYYY date, not the unix timestamp pilerimport's
-# -A/-B accepted, so the value has to be reshaped rather than passed through.
-def imap_date(timestamp):
-    return datetime.datetime.fromtimestamp(
-        int(timestamp), datetime.timezone.utc).strftime('%d-%b-%Y')
-
-
-search = 'ALL'
+# Handed to pilerimport as is: it compares them to the Date header to the
+# second, where IMAP SEARCH only knows whole days of the arrival date.
+time_filter = []
 if args.after is not None:
     print("Import emails after timestamp:", args.after, file=sys.stderr)
-    search = f'(SINCE "{imap_date(args.after)}")'
-elif args.before is not None:
+    time_filter += ['-A', args.after]
+if args.before is not None:
     print("Import emails before timestamp:", args.before, file=sys.stderr)
-    search = f'(BEFORE "{imap_date(args.before)}")'
+    time_filter += ['-B', args.before]
 
 # piler-imap-fetch downloads each mailbox and hands it to pilerimport in
 # batches; it ships in the piler-server image, which this repo builds from the
@@ -88,7 +81,7 @@ if providers:
             subprocess.run([
                 '/usr/bin/podman', 'exec', '-i', '-u', 'piler', 'piler-app',
                 '/usr/local/bin/piler-imap-fetch', ip_address, f'{user}*vmail',
-                os.path.join(tmpdir, user), batch, delay_ms, la_limit, search
+                os.path.join(tmpdir, user), batch, delay_ms, la_limit, *time_filter
             ], input=password + '\n', text=True, check=True)
         except subprocess.CalledProcessError as e:
             # The child already said what went wrong; repeating str(e) would
