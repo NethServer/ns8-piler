@@ -26,7 +26,7 @@ Index total
     Should Be Equal As Integers    ${rc}    0
     # The mysql client in the manticore image draws a table even with -B, and
     # pads the number differently from one version to the next.
-    ${count} =    Evaluate    re.search(r'\d+', $out).group()    modules=re
+    ${count} =    Evaluate    re.search(r'\\d+', $out).group()    modules=re
     RETURN    ${count}
 
 Key checksum
