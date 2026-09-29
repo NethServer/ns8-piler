@@ -88,6 +88,11 @@ Tag this run
     Set Suite Variable    ${run}    web-${stamp}
     ${since} =    Execute Command    date +%s
     Set Suite Variable    ${since}    ${since.strip()}
+    # 20_piler keeps its backend URL to itself, so look it up again.
+    ${node} =    Execute Command    runagent -m ${piler_module_id} printenv NODE_ID
+    ${traefik} =    Execute Command    redis-cli get node/${node.strip()}/default_instance/traefik
+    ${route} =    Run task    module/${traefik.strip()}/get-route    {"instance":"${piler_module_id}"}
+    Set Suite Variable    ${backend_url}    ${route}[url]
 
 Admin logs in to the health page
     ${location} =    Login redirect    admin@local    pilerrocks    ${admin_cookie}
