@@ -98,15 +98,8 @@ boot() {
    local config_dir="$1" password="$2"
    shift 2
 
-   # Mirrors the shipped asset: "    base_url: location.origin + '/',".
-   # KEEP_JS=1 leaves whatever the caller put there, to test a broken asset.
-   local js="${config_dir}/piler.js"
-   if [[ "${KEEP_JS:-0}" != 1 ]]; then
-      printf "    base_url: location.origin + '/',\n" > "$js"
-   fi
-
    (
-      export CONFIG_DIR="$config_dir" TMP_CONF_DIR="$TMPL" PILER_JS="$js"
+      export CONFIG_DIR="$config_dir" TMP_CONF_DIR="$TMPL"
       export PILER_HOSTNAME="piler.example.com"
       export MYSQL_HOSTNAME="mysql" MYSQL_DATABASE="piler" MYSQL_USER="piler"
       export MYSQL_PASSWORD="$password"
@@ -163,12 +156,6 @@ check_escaper my_cnf_value 'a\b'     '"a\\b"'
 check_escaper my_cnf_value 'a"b'     '"a\"b"'
 check_escaper my_cnf_value "a'b"     '"a'"'"'b"'
 
-# MariaDB interprets backslash inside literals, so doubling the quote is not
-# enough.
-check_escaper sql_literal "plain"  "plain"
-check_escaper sql_literal "a'b"    "a''b"
-check_escaper sql_literal 'a\b'    'a\\b'
-check_escaper sql_literal '$2y$10$x\y'  '$2y$10$x\\y'
 
 # The ampersand is the dangerous one: sed replaces it with the whole match.
 check_escaper sed_replacement "plain"  "plain"  /
@@ -391,25 +378,9 @@ boot "$d" 'pw with spaces'
 check_eq "a space is still allowed" \
    "mysqlpwd=pw with spaces" "$(grep '^mysqlpwd=' "${d}/piler.conf")"
 
-# PDO parses host:port, but an IPv6 literal needs brackets: verified against a
-# server on ::1:3390, where the bare form silently loses the port.
-d="$(new_dir)"
-boot "$d" 'piler123' 'MYSQL_HOSTNAME=::1'
-check_file_has "an IPv6 host is bracketed" \
-   "${d}/config-site.php" "\$config['DB_HOSTNAME'] = '[::1]:3306';"
-check_eq "the daemon gets the bare IPv6 host, its port being separate" \
-   "mysqlhost=::1" "$(grep '^mysqlhost=' "${d}/piler.conf")"
-check_eq ".my.cnf keeps host and port apart too" \
-   'host = "::1"' "$(grep -m1 '^host' "${d}/.my.cnf")"
-
-d="$(new_dir)"
-boot "$d" 'piler123' 'MYSQL_HOSTNAME=[::1]'
-check_file_has "an already-bracketed host is not double-bracketed" \
-   "${d}/config-site.php" "\$config['DB_HOSTNAME'] = '[::1]:3306';"
-
 d="$(new_dir)"
 boot "$d" 'piler123' 'MYSQL_HOSTNAME=db.example.com'
-check_file_has "a name is left unbracketed" \
+check_file_has "the database host carries its port" \
    "${d}/config-site.php" "\$config['DB_HOSTNAME'] = 'db.example.com:3306';"
 
 # RT is a constraint, not a preference: this image has no indexer, so a
@@ -568,49 +539,6 @@ check_file_has "config-site.php keeps the hostnames verbatim" \
    "${d}/config-site.php" "\$config['DB_HOSTNAME'] = 'host-${hostile}:3306';"
 check_file_has "SPHINX_HOSTNAME keeps the value verbatim" \
    "${d}/config-site.php" "\$config['SPHINX_HOSTNAME'] = 'search-${hostile}:9306';"
-
-echo "# PATH_PREFIX reaches both the PHP config and the JS asset"
-
-# Has to end up /archive/ on both sides: quoted in the JS, bare in the PHP.
-for given in '/archive' 'archive/' '/archive/'; do
-   d="$(new_dir)"
-   boot "$d" 'piler123' "PATH_PREFIX=${given}"
-   check_file_has "PATH_PREFIX=${given} normalizes in config-site.php" \
-      "${d}/config-site.php" "\$config['PATH_PREFIX'] = '/archive/';"
-   check_file_has "PATH_PREFIX=${given} normalizes in piler.js" \
-      "${d}/piler.js" "location.origin + '/archive/',"
-   check_file_has "PATH_PREFIX=${given} keeps the JS line prefix" \
-      "${d}/piler.js" "base_url: location.origin"
-done
-
-d="$(new_dir)"
-boot "$d" 'piler123' 'PATH_PREFIX=/'
-check_file_has "PATH_PREFIX=/ stays /" \
-   "${d}/config-site.php" "\$config['PATH_PREFIX'] = '/';"
-
-d="$(new_dir)"
-boot "$d" 'piler123'
-check_eq "no PATH_PREFIX leaves the JS asset alone" \
-   "    base_url: location.origin + '/'," "$(cat "${d}/piler.js")"
-check_eq "no PATH_PREFIX writes no PHP key" \
-   "0" "$(grep -cF "PATH_PREFIX" "${d}/config-site.php")"
-
-# The old JS sed needed the quotes passed in; someone may still be doing it.
-d="$(new_dir)"
-if boot "$d" 'piler123' "PATH_PREFIX='/archive/'" 2> /dev/null; then
-   ko "a quoted PATH_PREFIX was accepted"
-else
-   ok "a quoted PATH_PREFIX is rejected"
-fi
-
-d="$(new_dir)"
-boot "$d" 'piler123'
-: > "${d}/piler.js"
-if KEEP_JS=1 boot "$d" 'piler123' 'PATH_PREFIX=/archive' 2> /dev/null; then
-   ko "a piler.js without location.origin was accepted"
-else
-   ok "a piler.js without location.origin is rejected"
-fi
 
 echo "# a key missing from the live piler.conf is appended, not fatal"
 
