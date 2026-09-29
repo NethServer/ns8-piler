@@ -36,6 +36,5 @@ $config['SPHINX_DRIVER'] = 'sphinx';
 $config['SPHINX_DATABASE'] = '';
 $config['SPHINX_MAIN_INDEX'] = 'piler1';
 
-# Same unprivileged piler uid runs php-fpm and the daemon, so reload directly
-# via the init script - no sudo/systemctl (avoids jsuto/piler#479).
+# php-fpm and the daemon share the piler uid: no sudo/systemctl (jsuto/piler#479).
 $config['RELOAD_COMMAND'] = '/etc/init.d/rc.piler reload';

@@ -120,8 +120,7 @@ Piler logs reach the journal
 
 Supervisord restarts killed daemons
     FOR    ${name}    IN    piler-smtp    piler
-        # -o is the master among the forked children, -x keeps piler apart
-        # from piler-smtp.
+        # -o: the master, not a child. -x: piler, not piler-smtp.
         In container    kill "$(pgrep -o -x ${name})"
         # piler-smtp may wait for TIME_WAIT to clear before it binds again.
         Wait Until Keyword Succeeds    120 seconds    2 seconds    Process runs    ${name}
@@ -131,8 +130,7 @@ Supervisord restarts killed daemons
     ...    Archived count should be    ${run} respawn    1
 
 Mail left in the spool is archived after a restart
-    # Freeze the archiver so the mails pile up in the spool, then restart:
-    # the spool is a volume, so the new container must archive them.
+    # Frozen archiver, then a restart: the spool volume must carry the mails over.
     ${before} =    Piler query    SELECT count(*) FROM metadata;
     In container    for p in $(pgrep -x piler); do kill -STOP "$p"; done
     FOR    ${i}    IN RANGE    20

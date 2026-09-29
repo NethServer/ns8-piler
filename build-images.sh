@@ -15,9 +15,7 @@ repobase="${REPOBASE:-ghcr.io/nethserver}"
 # Configure the image name
 reponame="piler"
 
-# Was a moving "latest-<sha>" tag edited by hand on every piler-server change.
-# build-piler-server.yml pushes this same IMAGETAG for piler-server, so it
-# always exists for whatever ref is being built.
+# build-piler-server.yml pushes piler-server under this same IMAGETAG.
 piler_server_tag=$(echo "${IMAGETAG:-latest}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+|-+$//g')
 
 # Create a new empty container image

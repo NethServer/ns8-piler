@@ -4,10 +4,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-# Store 12 messages straight into a mailbox with doveadm, bypassing SMTP so
-# piler does not archive them on delivery and only import-emails can. Three
-# sets of four, dated 2 hours and 1 minute each side of a timestamp far from
-# the others, so every -A/-B window in 30_import.robot catches a known subset.
+# Store 12 messages with doveadm, not SMTP, so only import-emails archives them.
+# Three sets of four, 2 hours and 1 minute each side of distant timestamps.
 
 set -e
 

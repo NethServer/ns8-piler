@@ -1,17 +1,10 @@
 #!/usr/bin/env python3
 
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Supervisor event listener: exit the whole container on a FATAL process.
+"""Stop the container when a program goes FATAL.
 
-supervisord's own default behaviour is to give up retrying a crash-looping
-program (after startretries/startsecs are exhausted) and leave it dead while
-supervisord itself, and therefore the container, keeps running. That hides
-the failure from whatever is supervising the container (systemd, podman
-"restart:", ...), which is worse than a clean restart.
-
-This listener subscribes to PROCESS_STATE_FATAL events and, when one fires,
-kills supervisord's own pid so the container exits and the outer supervisor
-(the module's systemd unit) restarts it from scratch.
+supervisord would leave the program dead and the container running, hiding the
+failure from the module's systemd unit, which restarts the container instead.
 
 Protocol: https://supervisord.org/events.html#event-listeners-and-event-notifications
 """
@@ -31,8 +24,7 @@ def main() -> None:
 
         line = sys.stdin.readline()
         if not line:
-            # stdin closed (supervisord is shutting down): exit cleanly
-            # instead of falling through to a KeyError on an empty header.
+            # supervisord is shutting down.
             return
 
         try:
@@ -40,8 +32,7 @@ def main() -> None:
             length = int(headers["len"])
             payload = sys.stdin.read(length)
         except (ValueError, KeyError) as exc:
-            # A malformed header must not crash the listener - that would
-            # silently disable the FATAL watchdog. Ack and skip the event.
+            # Crashing here would silently disable the watchdog.
             sys.stderr.write(f"exit-on-fatal: ignoring malformed event: {exc}\n")
             sys.stderr.flush()
             write_stdout("RESULT 4\nFAIL")

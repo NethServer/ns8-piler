@@ -6,8 +6,7 @@ Resource    api.resource
 ${restore_user}    u3
 ${mail_domain}    domain.test
 ${smtp_url}    smtp://127.0.0.1:10587
-# Extra variables for import-emails, such as PILER_IMPORT_DELAY_MS=1 to go
-# through a large mailbox quickly on a test host.
+# Such as PILER_IMPORT_DELAY_MS=1, for a large mailbox on a test host.
 ${import_env}    ${EMPTY}
 
 *** Keywords ***
@@ -24,8 +23,7 @@ Index total
     ...    runagent -m ${piler_module_id} podman exec manticore-app mysql -h127.0.0.1 -P9306 -N -B -e "SELECT count(*) FROM piler1"
     ...    return_rc=True
     Should Be Equal As Integers    ${rc}    0
-    # The mysql client in the manticore image draws a table even with -B, and
-    # pads the number differently from one version to the next.
+    # The manticore client draws a table even with -B, padded per version.
     ${count} =    Evaluate    re.search(r'\\d+', $out).group()    modules=re
     RETURN    ${count}
 
@@ -38,8 +36,7 @@ Key checksum
 
 Message checksum
     [Arguments]    ${piler_id}
-    # pilerget decrypts from the store with piler.key: a matching checksum
-    # proves the restored key still opens the restored store.
+    # A matching checksum proves the restored key opens the restored store.
     ${out}    ${rc} =    Execute Command
     ...    runagent -m ${piler_module_id} podman exec -u piler piler-app pilerget ${piler_id} | sha256sum
     ...    return_rc=True
@@ -91,8 +88,7 @@ Record the archive before the backup
     Set Suite Variable    ${restored}    ${FALSE}
 
 Use the node local backup repository
-    # create-cluster starts rclone-webdav on every node; a repository URL
-    # must be unique, so reuse the one already pointing there if any.
+    # A repository URL must be unique: reuse the node's one if it exists.
     ${ip} =    Execute Command    redis-cli hget node/${module_node}/vpn ip_address
     ${url} =    Set Variable    webdav:http://${ip.strip()}:4694
     ${repos} =    Run task    cluster/list-backup-repositories    {}
@@ -108,8 +104,7 @@ Use the node local backup repository
     END
 
 Back up piler
-    # run-backup silently skips a disabled backup, so it is enabled with a
-    # schedule that will not fire during the test.
+    # run-backup skips a disabled backup, so enable it on a far schedule.
     ${bid} =    Run task    cluster/add-backup
     ...    {"name":"piler-test","instances":["${piler_module_id}"],"repository":"${repository}","schedule":"*-12-31 03:17:00","retention":1,"enabled":true}
     Set Suite Variable    ${backup_id}    ${bid}
@@ -156,8 +151,7 @@ The archive is restored as it was
 
 New email is archived after the restore
     [Setup]    The restore has run
-    # Unique per run: the UUID survives the restore, so a rerun would find the
-    # previous run's mail under the same subject.
+    # Unique per run: the UUID survives the restore.
     ${stamp} =    Evaluate    time.time_ns()    modules=time
     ${subject} =    Set Variable    after-restore ${stamp}
     ${out}    ${err}    ${rc} =    Execute Command

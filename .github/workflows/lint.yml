@@ -26,8 +26,7 @@ jobs:
         # Explicit, for pipefail: the default bash -e would let the sed hide a failure.
         shell: bash
         run: |
-          # Picked by shebang: most scripts here have no extension. The UI has
-          # its own tooling.
+          # By shebang: most scripts have no extension. The UI has its own tooling.
           mapfile -t files < <(git ls-files ':!ui' | while read -r f; do
             head -n1 "$f" | grep -qE '^#!.*(/bash|/sh)( |$)' && echo "$f"
           done)

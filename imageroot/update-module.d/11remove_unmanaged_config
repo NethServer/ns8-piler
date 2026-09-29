@@ -7,8 +7,7 @@
 
 set -e
 
-# Leftovers: this image keeps its own copies in /tmp/piler-conf. manticore.conf
-# is the one that matters, holding the database password at mode 755.
+# Leftovers of older images. manticore.conf held the database password at mode 755.
 stale="MANTICORE manticore.conf manticore.conf.dist sphinx.conf.dist config-site.dist.php piler.conf.dist piler-nginx.conf.dist"
 
 if ! systemctl is-active --user --quiet piler-app; then

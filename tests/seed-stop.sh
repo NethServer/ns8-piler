@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-# Store 60 messages in one folder: three batches of 20, so an import stopped
-# in the middle has a batch to finish and more left behind.
+# 60 messages, three batches of 20, so a stop lands with work left behind.
 
 set -e
 

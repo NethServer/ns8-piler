@@ -19,8 +19,7 @@ spool_count() {
    find "$WORKDIR" -type f 2>/dev/null | wc -l
 }
 
-# piler-smtp stops first (lower supervisord priority), so nothing refills the
-# spool while we wait for the archiver to empty it.
+# piler-smtp is already stopped, nothing refills the spool.
 drain_and_stop() {
    if [ "$DRAIN" = "1" ]; then
       elapsed=0

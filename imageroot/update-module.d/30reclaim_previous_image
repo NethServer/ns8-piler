@@ -6,16 +6,13 @@
 #
 set -e
 
-# Only an older layout ran an upstream image, and PILER_IMAGE named it.
-# update-module never removes a variable, so it survives; this script clears it
-# once the image is gone, so an empty one means there is nothing to reclaim.
+# PILER_IMAGE named the upstream image of an older layout. update-module never
+# removes a variable, so this script clears it once the image is gone.
 [ -n "${PILER_IMAGE:-}" ] || exit 0
 
 echo "Reclaiming the image this module no longer runs: ${PILER_IMAGE}" >&2
 
-# Ordered after 20restart, so piler-app already runs the new image. No -f: refuse
-# rather than pull one out from under a container, and keep the variable when it
-# does, being the only record of what to reclaim.
+# After 20restart. No -f: never pull an image from under a container.
 if podman rmi "${PILER_IMAGE}" > /dev/null 2>&1; then
     python3 -c 'import agent; agent.unset_env("PILER_IMAGE")'
 else

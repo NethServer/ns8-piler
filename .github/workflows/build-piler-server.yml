@@ -41,9 +41,7 @@ jobs:
           REPOBASE="ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
           image="${REPOBASE}/piler-server"
 
-          # Same primary tag publish-branch.yml gives the module image (literal
-          # ref name), so build-images.sh's org.nethserver.images label can
-          # reference ${IMAGETAG} and always find a real, just-pushed image.
+          # The module's IMAGETAG, so its org.nethserver.images label names this push.
           tag=$(echo "${REF_NAME}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+|-+$//g')
           short_sha="${SHA:0:7}"
           sha_tag="${tag}-${short_sha}"

@@ -42,10 +42,8 @@ ExecStartPost=runagent wait-after-piler
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/piler-app.ctr-id -t 10
 ExecReload=/usr/local/bin/runagent expand-configuration
 ExecReload=/usr/local/bin/runagent copy-piler-config
-# copy-piler-config drops the settings the entrypoint adds from --env, so put
-# them back. Then only the daemons reread piler.conf: a HUP to supervisord
-# restarts php-fpm while its old workers still hold the socket, php-fpm goes
-# FATAL and the whole pod restarts.
+# copy-piler-config drops what the entrypoint adds from --env. No HUP: php-fpm
+# restarts on a socket still held, goes FATAL and takes the pod down.
 ExecReload=/usr/bin/podman exec piler-app bash -c '. /entrypoint.sh && fix_configs'
 ExecReload=/usr/bin/podman exec piler-app /etc/init.d/rc.piler reload
 SyslogIdentifier=%u

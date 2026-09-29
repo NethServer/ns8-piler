@@ -2,12 +2,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * LD_PRELOAD shim: piler logs only through syslog(3), and a rootless container
- * has no /dev/log (uid 1000 can't create one in the runtime's /dev). This turns
- * those calls into stderr writes, so supervisord ships them to the container
- * log like nginx's and php-fpm's.
- *
- * The piler binaries are built fortified, so they call __syslog_chk, not
- * syslog. Both are overridden here.
+ * has no /dev/log. Send it to stderr instead. The binaries are fortified, so
+ * __syslog_chk is overridden too.
  */
 #define _GNU_SOURCE
 

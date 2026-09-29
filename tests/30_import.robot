@@ -10,12 +10,10 @@ ${import_user}    u3
 ${TC}    1400000000
 ${TM}    1500000000
 ${TA}    1600000000
-# Slow enough that a batch of 20 takes 18 seconds, so the stop lands mid-batch.
-# pilerimport skips the delay from 1000 up: it puts it all in tv_nsec, and
-# nanosleep rejects that.
+# A batch of 20 takes 18s, so the stop lands mid-batch. pilerimport skips any
+# delay from 1000 up (all of it in tv_nsec, which nanosleep rejects).
 ${stop_delay_ms}    900
-# Extra variables for the import that finishes the job, such as
-# PILER_IMPORT_DELAY_MS=1 on a host with a large mailbox.
+# Such as PILER_IMPORT_DELAY_MS=1, for a large mailbox on a test host.
 ${import_env}    ${EMPTY}
 
 *** Keywords ***
