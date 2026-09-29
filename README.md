@@ -113,7 +113,7 @@ builds `ghcr.io/nethserver/piler-server` from `piler-server/Dockerfile`, then
 `publish-images.yml` builds the module image `ghcr.io/nethserver/piler`, whose
 `org.nethserver.images` label names the tag the first job just pushed. See
 [piler-server/README.md](piler-server/README.md#ci) for the piler-server-specific
-workflows (lint and the compose end-to-end suite).
+workflows.
 
 ## Running tests locally
 

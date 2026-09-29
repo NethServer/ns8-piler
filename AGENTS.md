@@ -24,7 +24,6 @@ does not say.
   `import_env:PILER_IMPORT_DELAY_MS=1` makes a large mailbox import fast.
 - The `update` CI scenario only changes the core version. Nothing tests a piler
   update from the previous release yet.
-- `validate-piler-server.yml` uses `workflow_run`, so it only runs once on `main`.
 
 ## Traps
 

@@ -50,41 +50,12 @@ Only the files whose purpose is not obvious from the name:
 - `config/piler-run.sh` — runs the piler daemon in the foreground, see below.
 - `config/syslog-to-stderr.c` — the `LD_PRELOAD` shim, see below.
 - `config/exit-on-fatal-listener.py` — the `exit-on-fatal` listener.
-- `dockerfile-vars.sh` — reads `PILER_VERSION`/`BASE_IMAGE` back out of the
-  Dockerfile; sourced by this directory's own `build-images.sh` for its local
-  dev tags.
 - `.hadolint.yaml` — Dockerfile lint policy, with the reason for each ignore.
 
-The CI workflows that build, lint and validate this image live at the repo
-root's `.github/workflows/` (`build-piler-server.yml`, `lint-piler-server.yml`,
-`validate-piler-server.yml`) — GitHub only reads workflows from there, not
-from a subdirectory. See the root [README.md](../README.md#ci) for how they
-fit with the module's own CI.
-
-## Quick start
-
-Pulls the published image, no build needed:
-
-```sh
-cp .env.example .env    # edit the hostname and the database password
-docker compose up -d
-```
-
-The stack answers on `http://localhost/`; log in with the built-in
-`admin@local` (see [Default credentials](#default-credentials)).
-`docker compose pull` picks up a newer `latest`.
-
-`.env` is optional — the stack starts on the defaults without it — but
-`MYSQL_PASSWORD` and `PILER_HOSTNAME` are both read once, at the first start:
-MariaDB only applies the password while initialising its data directory, and
-mail is archived under the hostname. Changing either later means
-`docker compose down -v`, which destroys the archive. `.env.example`
-documents every knob it exposes, including the host ports to move if 25 or 80
-are already taken on your machine.
-
-To run your own build instead, `./build-images.sh` tags
-`ghcr.io/nethserver/piler-server:latest` locally and `docker compose up -d`
-uses that local tag without pulling.
+The CI workflows that build and lint this image live at the repo root's
+`.github/workflows/` (`build-piler-server.yml`, `lint-piler-server.yml`) —
+GitHub only reads workflows from there, not from a subdirectory. See the root
+[README.md](../README.md#ci) for how they fit with the module's own CI.
 
 ## Build
 
@@ -94,31 +65,16 @@ against their pinned `sha256`. `shim` compiles `config/syslog-to-stderr.c`
 into `syslog-to-stderr.so`. `runtime` only copies those artifacts in, so the
 fetch and build tooling never reaches the final image. amd64 only.
 
-Set `ENGINE=docker|podman|buildah` to pick the engine (auto-detected, prefers
-podman), and `REPOBASE`/`IMAGETAG` for the image name and extra tag. This
-script only builds and tags locally — CI pushes.
+Build it locally with `podman build -t ghcr.io/nethserver/piler-server:dev
+piler-server`. CI builds and pushes.
 
 Bumping `PILER_VERSION` is the only manual step to pick up a new piler
 release; the `.deb` asset is resolved at build time.
 
-## Run
-
-```sh
-docker compose up -d
-```
-
-`docker-compose.yml` has no `build:` section on purpose: it only ever runs an
-image, pulled or locally built, so `up` can never silently replace a published
-tag with the working tree. Point `PILER_IMAGE` at another tag to test it.
-
-`docker-compose.yml` has the full stack: `mysql` (MariaDB), `manticore`
-(pinned to what piler 1.4.9 was built against), `memcached`, and `piler`.
-
 ### Environment variables
 
-`docker-compose.yml` sets every one of these to the default shown, reading it
-from `.env` first. `.env.example` lists them all with the traps spelled out;
-copy it rather than editing the compose file.
+The module passes these with `--env` in
+`imageroot/systemd/user/piler-app.service`.
 
 Required — `pre_flight_check` aborts the start if any is missing:
 
@@ -149,18 +105,11 @@ Optional:
 | `PILER_STOP_DRAIN` | `1` | Drain the spool on a graceful stop, see below |
 | `PILER_STOP_DRAIN_TIMEOUT` | `300` | Seconds to keep draining |
 | `PILER_STOP_DRAIN_INTERVAL` | `2` | Seconds between spool checks |
-| `PILER_USER` | `piler` | Owner of the generated files — must match the image's uid and the compose `user:`, so the stack never passes it |
-
-Read by compose itself, so they never reach a container:
-
-| Variable | Default | What it does |
-| --- | --- | --- |
-| `PILER_IMAGE` | `ghcr.io/nethserver/piler-server:latest` | Image the `piler` service runs |
-| `HOST_SMTP_PORT` | `25` | Host side of the published SMTP port |
-| `HOST_HTTP_PORT` | `80` | Host side of the published HTTP port |
+| `PILER_USER` | `piler` | Owner of the generated files — must match the image's uid, so the module never passes it |
 
 `MANTICORE_PORT` and `MANTICORE_PORT_READONLY` only tell piler where to
-connect: manticore's own listeners live in `config/manticore.conf`, which the
+connect: manticore's own listeners live in the module's
+`imageroot/templates/manticore.conf`, which the
 entrypoint never touches, so either has to be changed in both places.
 `MYSQL_PORT` and `MEMCACHED_PORT` do move the server, both containers take
 theirs from the same variable.
@@ -186,7 +135,7 @@ manticore: the daemon's coordinates live in `piler.conf`, which no edit of
 `config-site.php` reaches. Setting `SPHINX_HOSTNAME` by hand would move the UI
 alone, searching one index while the daemon writes to another. They say where to
 *reach* manticore, not where it listens — change
-[config/manticore.conf](config/manticore.conf)'s `listen` lines and these have
+[manticore.conf](../imageroot/templates/manticore.conf)'s `listen` lines and these have
 to follow.
 
 Ports outside 1-65535 are rejected, and no value may contain a newline,
@@ -249,7 +198,7 @@ volume or a downstream module needs to list only what it actually decides.
 
 ### TLS
 
-The stack publishes SMTP and HTTP only. Upstream's
+The image serves SMTP and HTTP only. Upstream's
 `contrib/webserver/piler-nginx.conf` carries no `listen` directive at all — no
 port, no `ssl_certificate` — and leaves the web server plumbing to whoever
 installs it; the Dockerfile injects the `listen 80`. So nothing in the image
@@ -265,24 +214,10 @@ STARTTLS on port 25. Its CN is a fixed placeholder, unrelated to
 
 ### Startup order and restarts
 
-`depends_on` waits on a healthcheck for all three dependencies, so `up` blocks
-until MariaDB accepts connections with InnoDB initialised, manticore has its
-RT indexes loaded, and memcached answers. piler's entrypoint still polls the
-database itself (`MYSQL_WAIT_MAX_ATTEMPTS`), which is what covers the
-deployments running this image without compose.
-
-manticore's probe uses the ports from `config/manticore.conf`, not
-`MANTICORE_PORT`: the manticore container never receives that variable.
-
-`restart: unless-stopped` covers mysql, manticore and memcached, but not
-piler: `exit-on-fatal` is there to take the container down when a supervised
-service goes FATAL, and a restart policy would turn that into a flapping
-container instead of a visible stop. Restart it yourself once the cause is
-fixed.
-
-None of those policies survives a host reboot under rootless podman anyway:
-that needs `systemctl --user enable podman-restart.service`, which podman does
-not enable by default.
+The module's systemd units start mariadb, manticore and memcached before
+piler (`After=`), and piler's entrypoint still polls the database itself
+(`MYSQL_WAIT_MAX_ATTEMPTS`). When `exit-on-fatal` takes the container down,
+the unit's `Restart=always` starts it again.
 
 ### Default credentials
 
@@ -292,12 +227,12 @@ Piler ships two built-in accounts, not generated here: `admin@local` /
 exposing an instance beyond a trusted network.
 
 `admin@local`'s password can be replaced at the first start with
-`ADMIN_USER_PASSWORD_HASH` in `.env`; `auditor@local` has no such hook and has
-to be changed from the web UI. Both are only worth doing on a stack that has
-not been initialised yet, since the hash is written when the schema is
+`ADMIN_USER_PASSWORD_HASH`; `auditor@local` has no such hook and has
+to be changed from the web UI. Both are only worth doing on an instance that
+has not been initialised yet, since the hash is written when the schema is
 created.
 
-This directory builds and validates the image; the orchestration and upgrade
+This directory builds the image; the orchestration and upgrade
 logic around it is the rest of this repository, the
 [ns8-piler module](https://github.com/NethServer/ns8-piler).
 
@@ -310,12 +245,12 @@ plus `latest` on `main`, so there is no separate release step to run by hand.
 ## Debugging
 
 Everything streams to the container's stdout/stderr — supervisord's state
-transitions and every supervised program's output. `docker compose logs piler`
-shows it all, no shell needed inside.
+transitions and every supervised program's output. On NS8 that is the node
+journal, lines tagged `piler-app`, no shell needed inside.
 
 On a stuck or crash-looping container:
 
-- Stuck at `health: starting` past the 15s `start_period`, or `unhealthy`: the
+- Stuck at `health: starting` past the 30s `start-period`, or `unhealthy`: the
   healthcheck (`curl -fsS http://localhost/`, then `smtp://localhost:25/`) is
   failing. Check nginx and piler-smtp started.
 - A crash before "supervisord started": an `entrypoint.sh` step failed, usually
@@ -339,21 +274,16 @@ only reads workflows from there):
 | --- | --- | --- |
 | `lint-piler-server.yml` | push/PR touching `piler-server/**`, forks included | shellcheck, hadolint, and `tests/entrypoint-config-test.sh`. No credentials, no build, under a minute |
 | `build-piler-server.yml` | called from `publish-images.yml` | builds and pushes, before the module image is built so its label can reference the tag this run just pushed |
-| `validate-piler-server.yml` | `publish-images.yml` ("Publish images") completing, or `workflow_dispatch` | starts the full compose stack and exercises it |
 
 `build-piler-server.yml` always pushes the literal ref name (branch or git tag)
 as the primary tag, plus `latest` as an extra alias on the default branch -
 this is the same `IMAGETAG` the module gets, so `org.nethserver.images` always
 names a tag that was actually just pushed. Every build also gets an immutable
-`<tag>-<short sha>` tag, which is what `validate-piler-server.yml` pins to.
+`<tag>-<short sha>` tag.
 
-`validate-piler-server.yml` logs in as admin and auditor, sends a real mail and
-checks it is archived and searchable, restarts the stack and checks the mail
-survives and `config-site.php` neither grows nor breaks, rotates the database
-password and checks both the archiver and the UI pick it up, drains the spool,
-and forces a service into `FATAL` to verify `exit-on-fatal` brings the
-container down. Dispatch it manually to test a branch: `workflow_run` always
-loads the workflow file from `main`.
+The image is exercised end to end by the module's Robot suites in `tests/`, on
+real NS8 nodes: web login, search, attachments, the daemons' logs and respawn,
+mail left in the spool, import, backup and restore.
 
 ## Renovate
 
@@ -363,10 +293,6 @@ Renovate's config for this image lives in the root `renovate.json`, not here
 - Ubuntu base image: tracked natively by Renovate's `docker` datasource.
 - `PILER_VERSION` and `SUPERCRONIC_VERSION`: `customManagers` regex entries
   against their upstream GitHub releases.
-- `docker-compose.yml`'s mariadb and memcached tags are series tags
-  (`11.4`, `1.6-alpine`), so Renovate has no patch to bump and a
-  `docker compose pull` picks the fixes up on its own. Only manticore is an
-  exact patch, since upstream publishes no series tag for it.
 - Checksums (`PILER_SHA256`, `SUPERCRONIC_SHA256`) are **not** managed by
   Renovate - it cannot compute a file digest. A version-bump PR (Renovate's or
   a manual one) fails the build on the `sha256sum -c -` check until the new
@@ -436,7 +362,6 @@ It gives up after `PILER_STOP_DRAIN_TIMEOUT` seconds; `PILER_STOP_DRAIN=0` skips
 the wait. Without it, accepted mail sits in the spool until the next start.
 
 The effective window is `min(container stop grace, PILER_STOP_DRAIN_TIMEOUT)`,
-and the engine default grace is 10s, far below the 300s default here.
-`docker-compose.yml` sets `stop_grace_period: 360s`; anything else running this
-image needs the equivalent (`podman stop -t`, or `TimeoutStopSec` on a systemd
-unit), otherwise the container is SIGKILLed mid-drain.
+and the module stops piler-app with `podman stop -t 10`, far below the 300s
+default here. Mail still in the spool is not lost: `/var/piler/tmp` is the
+`piler_spool` volume, and the next start archives it.
