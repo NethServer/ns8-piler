@@ -11,7 +11,7 @@ the failure from whatever is supervising the container (systemd, podman
 
 This listener subscribes to PROCESS_STATE_FATAL events and, when one fires,
 kills supervisord's own pid so the container exits and the outer supervisor
-(systemd unit, podman/compose restart policy) restarts it from scratch.
+(the module's systemd unit) restarts it from scratch.
 
 Protocol: https://supervisord.org/events.html#event-listeners-and-event-notifications
 """

@@ -34,8 +34,6 @@ jobs:
           docker run --rm -v "${PWD}:/mnt" -w /mnt koalaman/shellcheck:stable \
             --severity=warning \
             entrypoint.sh \
-            build-images.sh \
-            dockerfile-vars.sh \
             config/piler-run.sh \
             tests/entrypoint-config-test.sh
 

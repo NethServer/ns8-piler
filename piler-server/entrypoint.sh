@@ -353,8 +353,8 @@ init_database() {
 
 create_my_cnf_files() {
    # Ubuntu 26.04's mariadb-client defaults to requiring TLS on TCP
-   # connections; the mariadb server in the compose stack has no SSL
-   # configured, so the connection is refused.
+   # connections; the module's mariadb container has no SSL configured, so
+   # the connection is refused.
    local host user pass
    host="$(my_cnf_value "$MYSQL_HOSTNAME")"
    user="$(my_cnf_value "$MYSQL_USER")"

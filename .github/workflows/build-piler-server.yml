@@ -48,7 +48,7 @@ jobs:
           short_sha="${SHA:0:7}"
           sha_tag="${tag}-${short_sha}"
 
-          # sha_tag: what validate-piler-server.yml pins to, immune to later pushes.
+          # sha_tag: an immutable tag for this exact build, immune to later pushes.
           tags=("${image}:${tag}" "${image}:${sha_tag}")
           if [ "${REF_NAME}" = "${DEFAULT_BRANCH}" ]; then
             tags+=("${image}:latest")
