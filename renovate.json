@@ -24,6 +24,16 @@
       ],
       "depNameTemplate": "aptible/supercronic",
       "datasourceTemplate": "github-releases"
+    },
+    {
+      "customType": "regex",
+      "description": "Bump the linter images the workflows run with docker run",
+      "managerFilePatterns": ["^\\.github/workflows/.+\\.ya?ml$"],
+      "matchStrings": [
+        "docker\\.io/(?<depName>[-0-9a-z_/.]+):(?<currentValue>[-0-9a-zA-Z_.]+)",
+        "(?<depName>ghcr\\.io/[-0-9a-z_/.]+):(?<currentValue>[-0-9a-zA-Z_.]+)"
+      ],
+      "datasourceTemplate": "docker"
     }
   ],
   "packageRules": [

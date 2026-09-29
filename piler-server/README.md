@@ -53,7 +53,7 @@ Only the files whose purpose is not obvious from the name:
 - `.hadolint.yaml` — Dockerfile lint policy, with the reason for each ignore.
 
 The CI workflows that build and lint this image live at the repo root's
-`.github/workflows/` (`build-piler-server.yml`, `lint-piler-server.yml`) —
+`.github/workflows/` (`build-piler-server.yml`, `lint.yml`) —
 GitHub only reads workflows from there, not from a subdirectory. See the root
 [README.md](../README.md#ci) for how they fit with the module's own CI.
 
@@ -272,7 +272,7 @@ only reads workflows from there):
 
 | Workflow | Trigger | Does |
 | --- | --- | --- |
-| `lint-piler-server.yml` | push/PR touching `piler-server/**`, forks included | shellcheck, hadolint, and `tests/entrypoint-config-test.sh`. No credentials, no build, under a minute |
+| `lint.yml` | every push/PR, forks included | shellcheck and ruff on every shell and Python script of the repo, hadolint, and `tests/entrypoint-config-test.sh`. No credentials, no build, under a minute |
 | `build-piler-server.yml` | called from `publish-images.yml` | builds and pushes, before the module image is built so its label can reference the tag this run just pushed |
 
 `build-piler-server.yml` always pushes the literal ref name (branch or git tag)
