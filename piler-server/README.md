@@ -1,367 +1,154 @@
 # piler-server
 
-Rootless container image for [piler](https://github.com/jsuto/piler), the
-mail archiving server. Available piler images are tagged manually and rebuilt
-rarely; this one tracks Ubuntu's dated "resolute" (26.04) base tags, so a new
-base image triggers a rebuild.
+Rootless container image for [piler](https://github.com/jsuto/piler), the mail
+archiving server, built for the ns8-piler module. It runs as uid/gid `1000`
+(`piler`) with every capability dropped except `CAP_NET_BIND_SERVICE`, for ports
+25 and 80.
 
-## Rootless design
+`supervisord` (`config/supervisord.conf`) runs `piler`, `piler-smtp`, `nginx`,
+`php-fpm`, `supercronic` (`/etc/piler.cron`) and `exit-on-fatal`.
 
-The container runs entirely as uid/gid `1000` (`piler`), with `CAP_DROP: ALL`
-and only `CAP_NET_BIND_SERVICE` added back so nginx/piler can bind ports
-25 and 80. There is no root inside the container, ever.
+## Layout
 
-That constraint shapes the Dockerfile:
-
-- nginx/php-fpm's `user`/`group` directives are deleted. A non-root master
-  can't drop privileges it never had.
-- Their pidfiles and sockets live in `/var/piler/run`, not `/run/...`, a
-  root-owned tmpfs a non-root process can't write subdirectories into.
-- nginx/php-fpm logs go to stdout/stderr, like every supervised program.
-- `piler`'s postinst creates the `piler` user; the image pins its uid/gid to
-  `1000` so volumes keep stable ownership across rebuilds.
-
-`supervisord` (`config/supervisord.conf`) starts `piler`, `piler-smtp`,
-`nginx`, `php-fpm`, `supercronic` (running `/etc/piler.cron`), and an
-`exit-on-fatal` listener that kills supervisord if a program crash-loops past
-its retry limit.
-
-### Piler's own config files
-
-These come from upstream, not this image. `entrypoint.sh` only fills in
-environment-specific values:
-
-- `piler.conf` — database connection, hostid, TLS, real-time indexing, pidfile.
-- `config-site.php` — web UI: database, decrypt binaries, memcached, manticore.
-- `piler-nginx.conf` — the vhost serving the web UI.
-
-The packaged `manticore.conf` is deliberately not one of them: it configures a
-local `indexer`/`searchd`, neither of which this image ships, so nothing would
-read it. Manticore runs in its own container with its own config — see
-[config/manticore.conf](config/manticore.conf), a different file that happens
-to share the name.
-
-## Repository layout
-
-Only the files whose purpose is not obvious from the name:
-
-- `entrypoint.sh` — generates the config files, waits for MySQL, creates the
+- `entrypoint.sh`: writes the config files, waits for MariaDB, creates the
   schema, hands off to supervisord.
-- `config/piler-run.sh` — runs the piler daemon in the foreground, see below.
-- `config/syslog-to-stderr.c` — the `LD_PRELOAD` shim, see below.
-- `config/exit-on-fatal-listener.py` — the `exit-on-fatal` listener.
-- `.hadolint.yaml` — Dockerfile lint policy, with the reason for each ignore.
-
-The CI workflows that build and lint this image live at the repo root's
-`.github/workflows/` (`build-piler-server.yml`, `lint.yml`) —
-GitHub only reads workflows from there, not from a subdirectory. See the root
-[README.md](../README.md#ci) for how they fit with the module's own CI.
+- `config/piler-run.sh`: runs the piler daemon, drains the spool on stop.
+- `config/syslog-to-stderr.c`: `LD_PRELOAD` shim for piler's logs, see below.
+- `config/exit-on-fatal-listener.py`: stops the container when a program goes
+  `FATAL`.
+- `config/imap-fetch.py`: the `piler-imap-fetch` used by `import-emails`.
+- `tests/entrypoint-config-test.sh`: offline tests of the config generation.
 
 ## Build
 
-Three stages. `fetcher` resolves piler's amd64 `.deb` from the GitHub release
-matching `PILER_VERSION`, plus the `supercronic` binary, and verifies both
-against their pinned `sha256`. `shim` compiles `config/syslog-to-stderr.c`
-into `syslog-to-stderr.so`. `runtime` only copies those artifacts in, so the
-fetch and build tooling never reaches the final image. amd64 only.
+Three stages. `fetcher` downloads piler's amd64 `.deb` for `PILER_VERSION` and
+`supercronic`, and checks their pinned `sha256`. `shim` compiles
+`syslog-to-stderr.so`. `runtime` copies them in, so no build tool reaches the
+final image. amd64 only.
 
-Build it locally with `podman build -t ghcr.io/nethserver/piler-server:dev
-piler-server`. CI builds and pushes.
+    podman build -t ghcr.io/nethserver/piler-server:dev piler-server
 
-Bumping `PILER_VERSION` is the only manual step to pick up a new piler
-release; the `.deb` asset is resolved at build time.
-
-### Environment variables
-
-The module passes these with `--env` in
-`imageroot/systemd/user/piler-app.service`.
-
-Required — `pre_flight_check` aborts the start if any is missing:
-
-| Variable | Lands in |
-| --- | --- |
-| `PILER_HOSTNAME` | `hostid` in `piler.conf`, the nginx `server_name`, the web UI's site name |
-| `MYSQL_HOSTNAME` | `mysqlhost`, `.my.cnf`, `DB_HOSTNAME` |
-| `MYSQL_DATABASE` | `mysqldb`, `DB_DATABASE` |
-| `MYSQL_USER` | `mysqluser`, `.my.cnf`, `DB_USERNAME` |
-| `MYSQL_PASSWORD` | `mysqlpwd`, `.my.cnf`, `DB_PASSWORD` |
-
-`PILER_HOSTNAME` is not the self-signed certificate's CN, which is a fixed
-placeholder.
-
-Optional:
-
-| Variable | Default | What it does |
-| --- | --- | --- |
-| `PATH_PREFIX` | *unset* | Path prefix when the UI is behind a reverse proxy |
-| `ADMIN_USER_PASSWORD_HASH` | *unset* | Overwrites the built-in admin's hash at schema creation |
-| `MYSQL_PORT` | `3306` | Database port — MariaDB's own default |
-| `MANTICORE_HOSTNAME` | `manticore` | Manticore host |
-| `MANTICORE_PORT` | `9306` | Manticore's SQL port — its own default |
-| `MANTICORE_PORT_READONLY` | `9307` | Manticore's `mysql_readonly` port — piler's convention |
-| `MEMCACHED_HOSTNAME` | `memcached` | memcached host |
-| `MEMCACHED_PORT` | `11211` | memcached port — its own default |
-| `MYSQL_WAIT_MAX_ATTEMPTS` | `60` | 5-second probes before the start gives up on the database |
-| `PILER_STOP_DRAIN` | `1` | Drain the spool on a graceful stop, see below |
-| `PILER_STOP_DRAIN_TIMEOUT` | `300` | Seconds to keep draining |
-| `PILER_STOP_DRAIN_INTERVAL` | `2` | Seconds between spool checks |
-| `PILER_USER` | `piler` | Owner of the generated files — must match the image's uid, so the module never passes it |
-
-`MANTICORE_PORT` and `MANTICORE_PORT_READONLY` only tell piler where to
-connect: manticore's own listeners live in the module's
-`imageroot/templates/manticore.conf`, which the
-entrypoint never touches, so either has to be changed in both places.
-`MYSQL_PORT` and `MEMCACHED_PORT` do move the server, both containers take
-theirs from the same variable.
-
-There is no `RT` variable to set: with no `indexer` in the image, real-time
-mode is the only mode, and any other value aborts the start.
-
-`PATH_PREFIX` takes a bare path, no quotes — `/archive`, `archive/` and
-`/archive/` all become `/archive/`. It is not enough on its own: `SITE_URL`,
-`BRANDING_LOGO`, `BRANDING_FAVICON` and `SITE_LOGO_LG` stay at the root and the
-entrypoint sets none of them. `SITE_URL` is the one that bites — the post-login
-redirect is built from it, so a stale value sends the browser out of the prefix.
-
-`MYSQL_PORT` lands in three grammars: `mysqlport`, a `port` line in `.my.cnf`,
-and appended to `DB_HOSTNAME` as `host:port`. The last is not a port field, but
-PDO parses it. An IPv6 literal is bracketed there, `[::1]:3306`, the only form
-PDO accepts; `piler.conf` and `.my.cnf` keep host and port apart and take it
-bare.
-
-`MANTICORE_PORT` covers both consumers, `sphxport` for the daemon and
-`SPHINX_HOSTNAME` for the UI. These variables are the only way to move
-manticore: the daemon's coordinates live in `piler.conf`, which no edit of
-`config-site.php` reaches. Setting `SPHINX_HOSTNAME` by hand would move the UI
-alone, searching one index while the daemon writes to another. They say where to
-*reach* manticore, not where it listens — change
-[manticore.conf](../imageroot/templates/manticore.conf)'s `listen` lines and these have
-to follow.
-
-Ports outside 1-65535 are rejected, and no value may contain a newline,
-carriage return or tab — a newline aborts a sed mid-file, and escaping eats a
-trailing one differently per destination. Spaces and printable characters are
-fine: every value is escaped for the grammar it lands in (sed replacement text,
-PHP literal, MariaDB option file, SQL literal), so a generated password needs no
-character restriction.
-
-`CONFIG_DIR`, `TMP_CONF_DIR` and `PILER_JS` exist for
-`tests/entrypoint-config-test.sh` to drive the entrypoint against a throwaway
-directory. Not for deployments.
-
-### Volumes
-
-> [!CAUTION]
-> `piler_etc` holds `piler.key`, the key the archived mail in `piler_store` is
-> encrypted with. **Back up both volumes together, and never delete
-> `piler.key`.** A store without its key cannot be decrypted, and a new key
-> does not open old mail.
-
-| Volume | Holds | Back up |
-| --- | --- | --- |
-| `piler_etc` (`/etc/piler`) | `piler.key`, the TLS pair, and the generated `piler.conf`, `config-site.php`, `piler-nginx.conf`, `.my.cnf` | yes, with `piler_store` |
-| `piler_store` (`/var/piler/store`) | the archived mail, encrypted | yes |
-| `piler_spool` (`/var/piler/tmp`) | mail accepted by `piler-smtp`, not yet archived | no — transient, but it must be a volume or a container recreation drops it |
-
-#### What the entrypoint writes
-
-| File | On every start |
-| --- | --- |
-| `piler.conf` | sets the connection and daemon keys from the environment, appending a line the file does not carry; every other key is left as found |
-| `config-site.php` | rewrites the block below the `# generated by entrypoint` marker; above it is yours |
-| `.my.cnf` | rewritten whole |
-| `piler-nginx.conf` | rewritten if absent, or if it has no `listen` directive |
-| `piler.key`, `piler.pem` | created only if absent |
-
-So a changed `MYSQL_PASSWORD` takes effect on a restart, and a hand edit to one
-of those keys does not survive it. A create-only file is regenerated by deleting
-it and restarting — except `piler.key`.
-
-`config-site.php` splits in two. Replaced every start, so set them through the
-variables above: `DB_HOSTNAME`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`,
-`SPHINX_HOSTNAME`, `SPHINX_HOSTNAME_READONLY`, `$memcached_server`, `RT`, and
-`PATH_PREFIX` when set.
-
-Written only when the file does not already state them, so a deployment that
-sets one keeps it: `SPHINX_MAIN_INDEX`, `MEMCACHED_ENABLED`, `DECRYPT_BINARY`,
-`DECRYPT_ATTACHMENT_BINARY`, `PILER_BINARY`, `RELOAD_COMMAND`.
-
-`RT` is in the first list because it is a constraint, not a preference.
-
-`SPHINX_MAIN_INDEX` names the index the UI searches; the daemon reads that name
-from `sphxdb`, and Manticore defines it in its own config. Rename in all three
-or it fails silently — a mismatch empties search, and an index Manticore does
-not define makes piler accept mail over SMTP and never archive it.
-
-Every other key is yours. The same holds for `piler.conf`: a file supplied by a
-volume or a downstream module needs to list only what it actually decides.
-
-### TLS
-
-The image serves SMTP and HTTP only. Upstream's
-`contrib/webserver/piler-nginx.conf` carries no `listen` directive at all — no
-port, no `ssl_certificate` — and leaves the web server plumbing to whoever
-installs it; the Dockerfile injects the `listen 80`. So nothing in the image
-answers on 443, and terminating TLS is the reverse proxy's job — the same
-proxy `PATH_PREFIX` exists for. Put nginx, Traefik or whatever you already
-run in front, give it a certificate for the name in `PILER_HOSTNAME`, and
-forward to the published HTTP port.
-
-The certificate the entrypoint generates is not idle: `piler.conf` points
-`pemfile` at it with `tls_enable=1` and `tls_min_version=TLSv1.2`, so it serves
-STARTTLS on port 25. Its CN is a fixed placeholder, unrelated to
-`PILER_HOSTNAME`, which is another reason it was never fit to serve the web UI.
-
-### Startup order and restarts
-
-The module's systemd units start mariadb, manticore and memcached before
-piler (`After=`), and piler's entrypoint still polls the database itself
-(`MYSQL_WAIT_MAX_ATTEMPTS`). When `exit-on-fatal` takes the container down,
-the unit's `Restart=always` starts it again.
-
-### Default credentials
-
-Piler ships two built-in accounts, not generated here: `admin@local` /
-`pilerrocks` and `auditor@local` / `auditor` (read-only search). The
-`MYSQL_PASSWORD` default is likewise a demo value. Change all three before
-exposing an instance beyond a trusted network.
-
-`admin@local`'s password can be replaced at the first start with
-`ADMIN_USER_PASSWORD_HASH`; `auditor@local` has no such hook and has
-to be changed from the web UI. Both are only worth doing on an instance that
-has not been initialised yet, since the hash is written when the schema is
-created.
-
-This directory builds the image; the orchestration and upgrade
-logic around it is the rest of this repository, the
-[ns8-piler module](https://github.com/NethServer/ns8-piler).
-
-The image is tagged with the ns8-piler ref that built it (branch name, or the
-module's own release tag) - the same `IMAGETAG` the module image gets, so its
-`org.nethserver.images` label always names a tag that was actually pushed.
-`build-piler-server.yml` (root `.github/workflows/`) pushes it on every push,
-plus `latest` on `main`, so there is no separate release step to run by hand.
-
-## Debugging
-
-Everything streams to the container's stdout/stderr — supervisord's state
-transitions and every supervised program's output. On NS8 that is the node
-journal, lines tagged `piler-app`, no shell needed inside.
-
-On a stuck or crash-looping container:
-
-- Stuck at `health: starting` past the 30s `start-period`, or `unhealthy`: the
-  healthcheck (`curl -fsS http://localhost/`, then `smtp://localhost:25/`) is
-  failing. Check nginx and piler-smtp started.
-- A crash before "supervisord started": an `entrypoint.sh` step failed, usually
-  a missing env var or a permission error writing into `/etc/piler`.
-- `Permission denied` from `safe_sed`: it needs write permission on the target
-  file itself, not just its directory. A config file left root-owned by an
-  older, root-run image fails here.
-
-Expected and harmless: nginx/php-fpm noting their `user`/`group` directives are
-ignored; supercronic's `process reaping disabled, not pid 1` (supervisord is pid
-1 and already reaps); and supervisord's `CRIT Server 'unix_http_server' running
-without any HTTP authentication checking` — that control socket is a filesystem
-socket restricted to the piler user (`chmod 0700`), not a network listener.
+`build-piler-server.yml` builds and pushes it on every push, tagged with the
+ns8-piler ref (the module's `IMAGETAG`), plus `<ref>-<short sha>`, and `latest`
+on `main`.
 
 ## CI
 
-These workflows live at the repo root's `.github/workflows/`, not here (GitHub
-only reads workflows from there):
+`lint.yml` runs shellcheck and ruff on every shell and Python script of the
+repo, hadolint, and `tests/entrypoint-config-test.sh`. The image is tested end
+to end by the module's Robot suites in `tests/`, on real NS8 nodes.
 
-| Workflow | Trigger | Does |
-| --- | --- | --- |
-| `lint.yml` | every push/PR, forks included | shellcheck and ruff on every shell and Python script of the repo, hadolint, and `tests/entrypoint-config-test.sh`. No credentials, no build, under a minute |
-| `build-piler-server.yml` | called from `publish-images.yml` | builds and pushes, before the module image is built so its label can reference the tag this run just pushed |
+## Environment variables
 
-`build-piler-server.yml` always pushes the literal ref name (branch or git tag)
-as the primary tag, plus `latest` as an extra alias on the default branch -
-this is the same `IMAGETAG` the module gets, so `org.nethserver.images` always
-names a tag that was actually just pushed. Every build also gets an immutable
-`<tag>-<short sha>` tag.
+The module passes them with `--env` in
+`imageroot/systemd/user/piler-app.service`.
 
-The image is exercised end to end by the module's Robot suites in `tests/`, on
-real NS8 nodes: web login, search, attachments, the daemons' logs and respawn,
-mail left in the spool, import, backup and restore.
+Required, the start aborts without them: `PILER_HOSTNAME`, `MYSQL_HOSTNAME`,
+`MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`.
 
-## Renovate
+| Variable | Default |
+| --- | --- |
+| `MYSQL_PORT` | `3306` |
+| `MANTICORE_HOSTNAME` | `manticore` |
+| `MANTICORE_PORT` | `9306` |
+| `MANTICORE_PORT_READONLY` | `9307` |
+| `MEMCACHED_HOSTNAME` | `memcached` |
+| `MEMCACHED_PORT` | `11211` |
+| `MYSQL_WAIT_MAX_ATTEMPTS` | `60`, 5 second probes |
+| `PILER_STOP_DRAIN` | `1` |
+| `PILER_STOP_DRAIN_TIMEOUT` | `300` seconds |
+| `PILER_STOP_DRAIN_INTERVAL` | `2` seconds |
 
-Renovate's config for this image lives in the root `renovate.json`, not here
-(Renovate reads only the repo-root config).
+The manticore ports only tell piler where to connect. manticore listens where
+`imageroot/templates/manticore.conf` says, so change both together.
 
-- Ubuntu base image: tracked natively by Renovate's `docker` datasource.
-- `PILER_VERSION` and `SUPERCRONIC_VERSION`: `customManagers` regex entries
-  against their upstream GitHub releases.
-- Checksums (`PILER_SHA256`, `SUPERCRONIC_SHA256`) are **not** managed by
-  Renovate - it cannot compute a file digest. A version-bump PR (Renovate's or
-  a manual one) fails the build on the `sha256sum -c -` check until the new
-  digest is pasted in by hand, copied from the release page (URLs are in the
-  Dockerfile comments next to each ARG), committed and pushed to that branch
-  with your own credentials. That push is what re-triggers CI: a push made
-  from inside a workflow run with the default `GITHUB_TOKEN` does not fire a
-  new run, but a normal `git push` from your own account does.
+No value may contain a newline, carriage return or tab. Everything else is
+escaped for the file it lands in, so a password needs no restriction.
+`CONFIG_DIR` and `TMP_CONF_DIR` exist only for the offline tests.
 
-## Attachment text extraction
+## Volumes
 
-Piler extracts searchable text from attachments with external converters, and
-the image installs the ones it expects: `catdoc` (legacy `.doc`), `unrtf`,
-`poppler-utils` (`pdftotext`), `tnef`.
+> [!CAUTION]
+> `piler_etc` holds `piler.key`, the key `piler_store` is encrypted with.
+> **Back up both together, and never delete `piler.key`.** A store without its
+> key cannot be decrypted.
 
-`catdoc` is kept deliberately, despite
-[jsuto/piler#484](https://github.com/jsuto/piler/issues/484) asking for a
-replacement: it is unmaintained since 2010 and runs on untrusted attachments,
-but there is no reasonable substitute (`antiword` is equally dead, LibreOffice
-headless adds hundreds of megabytes, Tika needs a JVM) and the package is in
-current Ubuntu and Debian, so no build break is coming. Revisit if upstream
-picks a replacement or a distribution drops it.
+| Volume | Holds |
+| --- | --- |
+| `piler_etc` (`/etc/piler`) | `piler.key`, the TLS pair, the generated config files |
+| `piler_store` (`/var/piler/store`) | the archived mail, encrypted |
+| `piler_spool` (`/var/piler/tmp`) | mail accepted, not yet archived. Not backed up, but kept across container recreation |
 
-## Piler daemon supervision
+## What the entrypoint writes
 
-`piler` and `piler-smtp` are ordinary supervisord programs. `-d` is optional for
-both, and `piler` writes its pidfile even without it, so foreground mode keeps
-`rc.piler reload` (the UI's "Apply changes") working. `config/piler-run.sh` only
-wraps `piler` to clear a pidfile left by a SIGKILL, which piler refuses to start
-over.
+| File | On every start |
+| --- | --- |
+| `piler.conf` | sets the connection and daemon keys, appends the ones missing, leaves the rest |
+| `config-site.php` | rewrites the block below `# generated by entrypoint`, keeps what is above |
+| `.my.cnf` | rewritten |
+| `piler-nginx.conf` | written if absent or without a `listen` directive |
+| `piler.key`, `piler.pem` | created only if absent |
 
-`priority` orders them: supervisord starts low-to-high and stops high-to-low, so
-`piler` (100) comes up before `piler-smtp` (200) accepts mail, and on the way
-down nginx/php-fpm/supercronic (999) go first, then the intake, then the
-archiver.
+The block of `config-site.php` holds `DB_*`, `SPHINX_HOSTNAME*`,
+`$memcached_server` and `RT=1`. `RT` is forced: the image has no `indexer`, so
+real-time indexing is the only mode. `SPHINX_MAIN_INDEX`, `MEMCACHED_ENABLED`,
+the binary paths and `RELOAD_COMMAND` are written only when the file lacks them.
 
-`piler-smtp` gets `startretries=15` because its listener has no `SO_REUSEADDR`:
-after any client connection a respawn waits out up to ~60s of TIME_WAIT before
-it can rebind port 25 (68s measured locally), exiting 1 meanwhile. The default 3
-retries would take the container down over a window that clears itself.
+`SPHINX_MAIN_INDEX`, piler's `sphxdb` and manticore's config must name the same
+index. A mismatch empties search, or makes piler accept mail and never archive
+it.
 
-A daemon that dies is restarted; one that crash-loops past `startretries` goes
-`FATAL`, and `exit-on-fatal` kills supervisord so the orchestrator restarts the
-container clean.
+TLS: the web UI listens on 80 only, traefik terminates HTTPS. The generated
+self-signed certificate serves STARTTLS on port 25.
 
-### Piler's logs
+Default accounts: `admin@local` / `pilerrocks` and `auditor@local` / `auditor`.
+Change them from the web UI.
 
-`piler` and `piler-smtp` log only through `syslog(3)`, and there is no
-`/dev/log` in the container — uid 1000 can't create one in the root-owned
-`/dev`. Every line was dropped, so the daemons were the only thing here without
-logs.
+## Daemons
 
-`config/syslog-to-stderr.c` is an `LD_PRELOAD` shim overriding `syslog` and
-`__syslog_chk` (the binaries are built fortified, so that is the symbol they
-call) to write to stderr, which supervisord then ships to the container log. It
-is preloaded for `piler`, `piler-smtp` and `supercronic` only, never for
-php-fpm or nginx, which have real log configuration.
+`piler` and `piler-smtp` run in the foreground. supervisord starts `piler`
+(priority 100) before `piler-smtp` (200), and stops them in reverse, after the
+web programs (999).
 
-Upstream would be the better place to fix this (`LOG_PERROR` when not
-daemonising); drop the shim if that lands.
+`piler-smtp` gets `startretries=15`: it has no `SO_REUSEADDR`, so a respawn
+waits up to about 60 seconds of TIME_WAIT before it can bind port 25 again.
+
+A program that goes `FATAL` makes `exit-on-fatal` stop the container, and the
+module's `Restart=always` starts it again.
+
+### Logs
+
+piler logs only through `syslog(3)`, and a rootless container has no `/dev/log`.
+`syslog-to-stderr.so` overrides `syslog` and `__syslog_chk` to write to stderr,
+which supervisord sends to the container log, the node journal on NS8. It is
+preloaded for `piler`, `piler-smtp` and `supercronic` only. Drop it if upstream
+learns to log to stderr.
 
 ### Graceful stop
 
-On `SIGTERM`, `config/piler-run.sh` waits for `piler` to empty `/var/piler/tmp`
-before stopping it — `piler-smtp` is already down, so nothing refills the spool.
-It gives up after `PILER_STOP_DRAIN_TIMEOUT` seconds; `PILER_STOP_DRAIN=0` skips
-the wait. Without it, accepted mail sits in the spool until the next start.
+On `SIGTERM`, `piler-run.sh` waits up to `PILER_STOP_DRAIN_TIMEOUT` for piler to
+empty the spool. The module stops piler-app with `podman stop -t 10`, so mail
+left in the spool is archived at the next start instead.
 
-The effective window is `min(container stop grace, PILER_STOP_DRAIN_TIMEOUT)`,
-and the module stops piler-app with `podman stop -t 10`, far below the 300s
-default here. Mail still in the spool is not lost: `/var/piler/tmp` is the
-`piler_spool` volume, and the next start archives it.
+## Debugging
+
+- A crash before "supervisord started": an `entrypoint.sh` step failed, usually
+  a missing variable or a permission error in `/etc/piler`.
+- `unhealthy`: the healthcheck (`curl -fsS http://localhost/`, then
+  `smtp://localhost:25/`) fails. Check nginx and piler-smtp.
+
+Harmless: nginx and php-fpm ignoring their `user` directive, supercronic's
+`process reaping disabled`, and supervisord's `CRIT Server 'unix_http_server'
+running without any HTTP authentication checking` (a socket only piler can
+open).
+
+## Renovate
+
+The root `renovate.json` tracks the Ubuntu base image, `PILER_VERSION` and
+`SUPERCRONIC_VERSION`. It cannot compute the checksums: a version bump fails the
+build until `PILER_SHA256` or `SUPERCRONIC_SHA256` is updated by hand from the
+release page, and pushed from your own account so CI runs again.
+
+Attachment text is extracted with `catdoc`, `unrtf`, `pdftotext` and `tnef`.
+`catdoc` is unmaintained but has no reasonable replacement
+([jsuto/piler#484](https://github.com/jsuto/piler/issues/484)).
