@@ -23,6 +23,8 @@ jobs:
           persist-credentials: false
 
       - name: shellcheck
+        # Explicit, for pipefail: the default bash -e would let the sed hide a failure.
+        shell: bash
         run: |
           # Picked by shebang: most scripts here have no extension. The UI has
           # its own tooling.
@@ -44,6 +46,8 @@ jobs:
           persist-credentials: false
 
       - name: ruff
+        # Explicit, for pipefail: the default bash -e would let the sed hide a failure.
+        shell: bash
         run: |
           # Actions have no .py extension, so ruff would never find them alone.
           mapfile -t files < <(git ls-files ':!ui' | while read -r f; do
