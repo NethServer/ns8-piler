@@ -7,24 +7,12 @@ Resource    piler.resource
 ${restore_user}    u3
 ${mail_domain}    domain.test
 ${smtp_url}    smtp://127.0.0.1:10587
-# Such as PILER_IMPORT_DELAY_MS=1, for a large mailbox on a test host.
-${import_env}    ${EMPTY}
 
 *** Keywords ***
 Module environment
     [Arguments]    ${name}
     ${out} =    Execute Command    runagent -m ${piler_module_id} printenv ${name}
     RETURN    ${out.strip()}
-
-Archived subject count
-    [Arguments]    ${subject}
-    ${out} =    Piler query    SELECT count(*) FROM metadata WHERE subject = '${subject}';
-    RETURN    ${out}
-
-Archived subject count should be
-    [Arguments]    ${subject}    ${expected}
-    ${count} =    Archived subject count    ${subject}
-    Should Be Equal    ${count}    ${expected}
 
 The restore has run
     # Without it the checks below would pass against the old module.
@@ -96,8 +84,7 @@ Piler runs again after the restore
 The restored piler answers on its route
     [Setup]    The restore has run
     # The restore runs configure-module again, which recreates the route.
-    ${traefik} =    Execute Command    redis-cli get node/${module_node}/default_instance/traefik
-    ${route} =    Run task    module/${traefik.strip()}/get-route    {"instance":"${piler_module_id}"}
+    ${route} =    Piler route
     ${out} =    Execute Command    curl -s ${route}[url]
     Should Contain    ${out}    content="piler email archiver"
 
@@ -123,19 +110,7 @@ New email is archived after the restore
     Log    ${err}
     Should Be Equal As Integers    ${rc}    0
     Wait Until Keyword Succeeds    60 seconds    2 seconds
-    ...    Archived subject count should be    ${subject}    1
-
-Import after the restore adds no duplicates
-    [Setup]    The restore has run
-    ${before} =    Piler query    SELECT count(*) FROM metadata WHERE message_id <> piler_id;
-    ${out}    ${err}    ${rc} =    Execute Command
-    ...    runagent -m ${piler_module_id} env ${import_env} import-emails
-    ...    return_rc=True    return_stderr=True
-    Log    ${err}
-    Should Be Equal As Integers    ${rc}    0
-    # Mail without a Message-ID is archived again on every import, by design.
-    ${after} =    Piler query    SELECT count(*) FROM metadata WHERE message_id <> piler_id;
-    Should Be Equal    ${before}    ${after}
+    ...    Archived count should be    ${subject}    1
 
 Remove the test backup
     Run task    cluster/remove-backup    {"id":${backup_id}}

@@ -3,6 +3,7 @@ Library    SSHLibrary
 Library    Collections
 Library    String
 Resource    api.resource
+Resource    piler.resource
 
 *** Variables ***
 ${import_user}    u3
@@ -31,26 +32,13 @@ Import emails
 
 Archived import tests should be
     [Arguments]    @{expected}
-    ${out}    ${rc} =    Execute Command
-    ...    runagent -m ${piler_module_id} podman exec -i mariadb-app mysql -N -s -e "USE piler; SELECT subject FROM metadata WHERE subject LIKE 'import-test %';"
-    ...    return_rc=True
-    Should Be Equal As Integers    ${rc}    0
+    ${out} =    Piler query    SELECT subject FROM metadata WHERE subject LIKE 'import-test %';
     @{actual} =    Split To Lines    ${out}
     Lists Should Be Equal    ${actual}    ${expected}    ignore_order=True
 
-Archived total
-    ${out}    ${rc} =    Execute Command
-    ...    runagent -m ${piler_module_id} podman exec -i mariadb-app mysql -N -s -e "USE piler; SELECT count(*) FROM metadata;"
-    ...    return_rc=True
-    Should Be Equal As Integers    ${rc}    0
-    RETURN    ${out.strip()}
-
 Archived import-stop count
-    ${out}    ${rc} =    Execute Command
-    ...    runagent -m ${piler_module_id} podman exec -i mariadb-app mysql -N -s -e "USE piler; SELECT count(*) FROM metadata WHERE subject LIKE 'import-stop ${stop_tag} %';"
-    ...    return_rc=True
-    Should Be Equal As Integers    ${rc}    0
-    RETURN    ${out.strip()}
+    ${count} =    Archived count    import-stop ${stop_tag} %
+    RETURN    ${count}
 
 Store a tagged mail
     [Arguments]    ${user}    ${subject}
@@ -72,14 +60,6 @@ Import recent emails
     Log    ${err}
     Should Be Equal As Integers    ${rc}    0
     RETURN    ${err}
-
-Archived with subject
-    [Arguments]    ${subject}
-    ${out}    ${rc} =    Execute Command
-    ...    runagent -m ${piler_module_id} podman exec -i mariadb-app mysql -N -s -e "USE piler; SELECT count(*) FROM metadata WHERE subject = '${subject}';"
-    ...    return_rc=True
-    Should Be Equal As Integers    ${rc}    0
-    RETURN    ${out.strip()}
 
 Import-stop batch has started
     ${count} =    Archived import-stop count
@@ -127,9 +107,9 @@ Import every email left
     ...    import-test A -7200    import-test A -60    import-test A +60    import-test A +7200
 
 Import again without duplicates
-    ${before} =    Archived total
+    ${before} =    Piler query    SELECT count(*) FROM metadata;
     Import emails
-    ${after} =    Archived total
+    ${after} =    Piler query    SELECT count(*) FROM metadata;
     Should Be Equal    ${before}    ${after}
 
 Stop an import in the middle of a batch
@@ -153,16 +133,6 @@ Stop an import in the middle of a batch
     ${count} =    Archived import-stop count
     Should Be True    ${count} % 20 == 0 and 0 < ${count} < 60    ${count} archived
 
-Import again after a stop
-    ${cmd_env} =    Set Variable If    '${import_env}' != ''    env ${import_env}    ${EMPTY}
-    ${out}    ${err}    ${rc} =    Execute Command
-    ...    runagent -m ${piler_module_id} ${cmd_env} import-emails
-    ...    return_rc=True    return_stderr=True
-    Log    ${err}
-    Should Be Equal As Integers    ${rc}    0
-    ${count} =    Archived import-stop count
-    Should Be Equal As Integers    ${count}    60
-
 Import every enabled mailbox and skip a disabled one
     [Teardown]    Set mailbox enabled    ${other_user}    true
     ${stamp} =    Evaluate    time.time_ns()    modules=time
@@ -175,18 +145,16 @@ Import every enabled mailbox and skip a disabled one
     ${err} =    Import recent emails
     Should Contain    ${err}    Importing ${import_user} to
     Should Contain    ${err}    Skipped ${other_user}, mailbox is disabled
-    ${count} =    Archived with subject    ${multi} ${import_user}
-    Should Be Equal As Integers    ${count}    1
-    ${count} =    Archived with subject    ${multi} ${other_user}
-    Should Be Equal As Integers    ${count}    0
+    # The window also covers what the stopped import left behind.
+    Archived count should be    import-stop ${stop_tag} %    60
+    Archived count should be    ${multi} ${import_user}    1
+    Archived count should be    ${multi} ${other_user}    0
 
 A mailbox enabled again is imported
     ${err} =    Import recent emails
     Should Contain    ${err}    Importing ${other_user} to
-    ${count} =    Archived with subject    ${multi} ${other_user}
-    Should Be Equal As Integers    ${count}    1
-    ${count} =    Archived with subject    ${multi} ${import_user}
-    Should Be Equal As Integers    ${count}    1
+    Archived count should be    ${multi} ${other_user}    1
+    Archived count should be    ${multi} ${import_user}    1
 
 Fail when the mail server is unknown
     ${out}    ${err}    ${rc} =    Execute Command
