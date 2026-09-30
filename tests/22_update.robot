@@ -15,11 +15,6 @@ ${smtp_url}    smtp://127.0.0.1:10587
 ${import_env}    ${EMPTY}
 
 *** Keywords ***
-Archived like should be
-    [Arguments]    ${subject_like}    ${expected}
-    ${count} =    Piler query    SELECT count(*) FROM metadata WHERE subject LIKE '${subject_like}';
-    Should Be Equal As Integers    ${count}    ${expected}
-
 Index is complete
     ${total} =    Piler query    SELECT count(*) FROM metadata;
     ${index} =    Index total
@@ -54,7 +49,7 @@ Archive mail with the stable import
     Log    ${err}
     Should Be Equal As Integers    ${rc}    0
     Wait Until Keyword Succeeds    60 seconds    2 seconds
-    ...    Archived like should be    ${tag} %    5
+    ...    Archived count should be    ${tag} %    5
 
 Record the archive before the update
     ${first} =    Piler query    SELECT piler_id FROM metadata ORDER BY id LIMIT 1;
@@ -95,7 +90,7 @@ New mail is archived after the update
     ...    return_rc=True    return_stderr=True
     Should Be Equal As Integers    ${rc}    0    ${err}
     Wait Until Keyword Succeeds    60 seconds    2 seconds
-    ...    Archived like should be    ${subject}    1
+    ...    Archived count should be    ${subject}    1
 
 The new import skips what the stable one archived
     # Same window as the stable import: the mails it archived must not come back.
@@ -105,4 +100,4 @@ The new import skips what the stable one archived
     ...    return_rc=True    return_stderr=True
     Log    ${err}
     Should Be Equal As Integers    ${rc}    0
-    Archived like should be    ${tag} %    6
+    Archived count should be    ${tag} %    6

@@ -1,5 +1,6 @@
 *** Settings ***
 Library    SSHLibrary
+Resource    api.resource
 
 *** Keywords ***
 Piler query
@@ -34,6 +35,22 @@ Message checksum
     ...    return_rc=True
     Should Be Equal As Integers    ${rc}    0
     RETURN    ${out.split()[0]}
+
+Archived count
+    [Arguments]    ${subject_like}
+    ${count} =    Piler query    SELECT count(*) FROM metadata WHERE subject LIKE '${subject_like}';
+    RETURN    ${count}
+
+Archived count should be
+    [Arguments]    ${subject_like}    ${expected}
+    ${count} =    Archived count    ${subject_like}
+    Should Be Equal As Integers    ${count}    ${expected}
+
+Piler route
+    ${node} =    Execute Command    runagent -m ${piler_module_id} printenv NODE_ID
+    ${traefik} =    Execute Command    redis-cli get node/${node.strip()}/default_instance/traefik
+    ${route} =    Run task    module/${traefik.strip()}/get-route    {"instance":"${piler_module_id}"}
+    RETURN    ${route}
 
 Piler daemons are running
     ${out} =    Execute Command    runagent -m ${piler_module_id} podman exec piler-app /etc/init.d/rc.piler status

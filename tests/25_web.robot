@@ -47,11 +47,6 @@ Send mail
     ...    return_rc=True    return_stderr=True
     Should Be Equal As Integers    ${rc}    0    ${err}
 
-Archived count should be
-    [Arguments]    ${subject_like}    ${expected}
-    ${count} =    Piler query    SELECT count(*) FROM metadata WHERE subject LIKE '${subject_like}';
-    Should Be Equal As Integers    ${count}    ${expected}
-
 Search finds
     [Arguments]    ${subject}
     ${out} =    Execute Command
@@ -101,9 +96,7 @@ Tag this run
     ${since} =    Execute Command    date +%s
     Set Suite Variable    ${since}    ${since.strip()}
     # 20_piler keeps its backend URL to itself, so look it up again.
-    ${node} =    Execute Command    runagent -m ${piler_module_id} printenv NODE_ID
-    ${traefik} =    Execute Command    redis-cli get node/${node.strip()}/default_instance/traefik
-    ${route} =    Run task    module/${traefik.strip()}/get-route    {"instance":"${piler_module_id}"}
+    ${route} =    Piler route
     Set Suite Variable    ${backend_url}    ${route}[url]
 
 Reload keeps the database settings
@@ -181,9 +174,7 @@ A new configuration reaches the route and piler
     ${after} =    Run task    module/${piler_module_id}/get-configuration    {}
     Should Be Equal    ${after}[host]    ${host}
     Should Be Equal As Integers    ${after}[retention_days]    365
-    ${node} =    Execute Command    runagent -m ${piler_module_id} printenv NODE_ID
-    ${traefik} =    Execute Command    redis-cli get node/${node.strip()}/default_instance/traefik
-    ${route} =    Run task    module/${traefik.strip()}/get-route    {"instance":"${piler_module_id}"}
+    ${route} =    Piler route
     Should Be Equal    ${route}[host]    ${host}
     Set Suite Variable    ${backend_url}    ${route}[url]
     Wait Until Keyword Succeeds    120 seconds    5 seconds    Piler daemons are running
