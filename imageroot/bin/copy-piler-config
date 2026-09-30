@@ -1,0 +1,18 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Copy the generated configs into the piler_etc volume. podman unshare: its
+# files belong to the container's uid 1000. The chown fixes files left
+# root-owned by an older root-run image.
+
+podman volume create piler_etc 2>/dev/null || true
+VOLPATH=$(podman volume inspect piler_etc --format '{{.Mountpoint}}')
+
+# The piler_etc directory here is the module's output, not the volume.
+podman unshare cp piler_etc/config-site.php "${VOLPATH}/config-site.php"
+podman unshare cp piler_etc/piler.conf "${VOLPATH}/piler.conf"
+podman unshare chown -R 1000:1000 "${VOLPATH}"
