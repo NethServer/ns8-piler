@@ -79,6 +79,20 @@ Spool holds mail
     ${rc}    ${out} =    In container    find /var/piler/tmp -type f | wc -l
     Should Be True    ${out} > 0
 
+Configure piler
+    [Arguments]    ${host}    ${retention}
+    Run task    module/${piler_module_id}/configure-module
+    ...    {"host":"${host}","http2https":${config}[http2https],"lets_encrypt":${config}[lets_encrypt],"mail_server":"${config}[mail_server]","retention_days":${retention}}
+
+Restore the configuration
+    Configure piler    ${config}[host]    ${config}[retention_days]
+    Wait Until Keyword Succeeds    120 seconds    5 seconds    Piler daemons are running
+
+Piler conf value
+    [Arguments]    ${key}
+    ${rc}    ${out} =    In container    grep "^${key}=" /etc/piler/piler.conf
+    RETURN    ${out}
+
 *** Test Cases ***
 Tag this run
     # Unique per run, so a rerun on the same host is not taken for duplicates.
@@ -155,3 +169,26 @@ Mail left in the spool is archived after a restart
     ...    Archived count should be    ${run} spool %    20
     ${after} =    Piler query    SELECT count(*) FROM metadata;
     Should Be Equal As Integers    ${after}    ${${before} + 20}
+
+A new configuration reaches the route and piler
+    [Teardown]    Restore the configuration
+    ${cfg} =    Run task    module/${piler_module_id}/get-configuration    {}
+    # JSON booleans, since the values go back into a JSON payload.
+    ${cfg} =    Evaluate    {k: (str(v).lower() if isinstance(v, bool) else v) for k, v in $cfg.items()}
+    Set Suite Variable    ${config}    ${cfg}
+    ${host} =    Set Variable    reconfigured.${mail_domain}
+    Configure piler    ${host}    365
+    ${after} =    Run task    module/${piler_module_id}/get-configuration    {}
+    Should Be Equal    ${after}[host]    ${host}
+    Should Be Equal As Integers    ${after}[retention_days]    365
+    ${node} =    Execute Command    runagent -m ${piler_module_id} printenv NODE_ID
+    ${traefik} =    Execute Command    redis-cli get node/${node.strip()}/default_instance/traefik
+    ${route} =    Run task    module/${traefik.strip()}/get-route    {"instance":"${piler_module_id}"}
+    Should Be Equal    ${route}[host]    ${host}
+    Set Suite Variable    ${backend_url}    ${route}[url]
+    Wait Until Keyword Succeeds    120 seconds    5 seconds    Piler daemons are running
+    ${retention} =    Piler conf value    default_retention_days
+    Should Be Equal    ${retention}    default_retention_days=365
+    ${hostid} =    Piler conf value    hostid
+    Should Be Equal    ${hostid}    hostid=${host}
+    Wait Until Keyword Succeeds    60 seconds    2 seconds    Web UI reaches its database
