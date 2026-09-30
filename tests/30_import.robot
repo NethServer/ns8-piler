@@ -6,6 +6,8 @@ Resource    api.resource
 
 *** Variables ***
 ${import_user}    u3
+# A second mailbox of the domain, disabled for a while by the multi-user test.
+${other_user}    u1
 # Centres of the three sets stored by seed-import.sh
 ${TC}    1400000000
 ${TM}    1500000000
@@ -46,6 +48,35 @@ Archived total
 Archived import-stop count
     ${out}    ${rc} =    Execute Command
     ...    runagent -m ${piler_module_id} podman exec -i mariadb-app mysql -N -s -e "USE piler; SELECT count(*) FROM metadata WHERE subject LIKE 'import-stop ${stop_tag} %';"
+    ...    return_rc=True
+    Should Be Equal As Integers    ${rc}    0
+    RETURN    ${out.strip()}
+
+Store a tagged mail
+    [Arguments]    ${user}    ${subject}
+    # Before any disable: dovecot no longer knows a disabled user.
+    ${out}    ${err}    ${rc} =    Execute Command
+    ...    printf 'From: <import@domain.test>\r\nTo: <${user}@domain.test>\r\nSubject: ${subject}\r\nMessage-ID: <%s@domain.test>\r\nDate: %s\r\n\r\nmulti-user test\r\n' "$(date +%s%N)" "$(date -R)" | runagent -m ${MID} podman exec -i dovecot doveadm save -u ${user}
+    ...    return_rc=True    return_stderr=True
+    Should Be Equal As Integers    ${rc}    0    ${err}
+
+Set mailbox enabled
+    [Arguments]    ${user}    ${enabled}
+    Run task    module/${MID}/set-mailbox-enabled    {"user":"${user}","enabled":${enabled}}
+
+Import recent emails
+    ${cmd_env} =    Set Variable If    '${import_env}' != ''    env ${import_env}    ${EMPTY}
+    ${out}    ${err}    ${rc} =    Execute Command
+    ...    runagent -m ${piler_module_id} ${cmd_env} import-emails -A ${multi_since}
+    ...    return_rc=True    return_stderr=True
+    Log    ${err}
+    Should Be Equal As Integers    ${rc}    0
+    RETURN    ${err}
+
+Archived with subject
+    [Arguments]    ${subject}
+    ${out}    ${rc} =    Execute Command
+    ...    runagent -m ${piler_module_id} podman exec -i mariadb-app mysql -N -s -e "USE piler; SELECT count(*) FROM metadata WHERE subject = '${subject}';"
     ...    return_rc=True
     Should Be Equal As Integers    ${rc}    0
     RETURN    ${out.strip()}
@@ -131,6 +162,31 @@ Import again after a stop
     Should Be Equal As Integers    ${rc}    0
     ${count} =    Archived import-stop count
     Should Be Equal As Integers    ${count}    60
+
+Import every enabled mailbox and skip a disabled one
+    [Teardown]    Set mailbox enabled    ${other_user}    true
+    ${stamp} =    Evaluate    time.time_ns()    modules=time
+    Set Suite Variable    ${multi}    multi-${stamp}
+    ${since} =    Evaluate    int(time.time()) - 3600    modules=time
+    Set Suite Variable    ${multi_since}    ${since}
+    Store a tagged mail    ${import_user}    ${multi} ${import_user}
+    Store a tagged mail    ${other_user}    ${multi} ${other_user}
+    Set mailbox enabled    ${other_user}    false
+    ${err} =    Import recent emails
+    Should Contain    ${err}    Importing ${import_user} to
+    Should Contain    ${err}    Skipped ${other_user}, mailbox is disabled
+    ${count} =    Archived with subject    ${multi} ${import_user}
+    Should Be Equal As Integers    ${count}    1
+    ${count} =    Archived with subject    ${multi} ${other_user}
+    Should Be Equal As Integers    ${count}    0
+
+A mailbox enabled again is imported
+    ${err} =    Import recent emails
+    Should Contain    ${err}    Importing ${other_user} to
+    ${count} =    Archived with subject    ${multi} ${other_user}
+    Should Be Equal As Integers    ${count}    1
+    ${count} =    Archived with subject    ${multi} ${import_user}
+    Should Be Equal As Integers    ${count}    1
 
 Fail when the mail server is unknown
     ${out}    ${err}    ${rc} =    Execute Command
