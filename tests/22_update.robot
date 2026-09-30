@@ -39,6 +39,7 @@ Archive mail with the stable import
     ${stamp} =    Evaluate    time.time_ns()    modules=time
     Set Suite Variable    ${tag}    pre-update-${stamp}
     ${since} =    Evaluate    int(time.time()) - 3600    modules=time
+    Set Suite Variable    ${since}    ${since}
     # Stored with doveadm, not SMTP, so only the stable import-emails archives them.
     FOR    ${i}    IN RANGE    5
         ${out}    ${err}    ${rc} =    Execute Command
@@ -97,13 +98,11 @@ New mail is archived after the update
     ...    Archived like should be    ${subject}    1
 
 The new import skips what the stable one archived
-    ${before_ids} =    Piler query    SELECT count(*) FROM metadata WHERE message_id <> piler_id;
+    # Same window as the stable import: the mails it archived must not come back.
     ${cmd_env} =    Set Variable If    '${import_env}' != ''    env ${import_env}    ${EMPTY}
     ${out}    ${err}    ${rc} =    Execute Command
-    ...    runagent -m ${piler_module_id} ${cmd_env} import-emails
+    ...    runagent -m ${piler_module_id} ${cmd_env} import-emails -A ${since}
     ...    return_rc=True    return_stderr=True
     Log    ${err}
     Should Be Equal As Integers    ${rc}    0
-    # Mail without a Message-ID is archived again on every import, by design.
-    ${after_ids} =    Piler query    SELECT count(*) FROM metadata WHERE message_id <> piler_id;
-    Should Be Equal    ${after_ids}    ${before_ids}
+    Archived like should be    ${tag} %    6
