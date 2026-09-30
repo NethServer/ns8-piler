@@ -1,6 +1,7 @@
 *** Settings ***
 Library    SSHLibrary
 Resource    api.resource
+Resource    piler.resource
 
 *** Variables ***
 ${smtp_url}    smtp://127.0.0.1:10587
@@ -46,14 +47,6 @@ Send mail
     ...    return_rc=True    return_stderr=True
     Should Be Equal As Integers    ${rc}    0    ${err}
 
-Piler query
-    [Arguments]    ${sql}
-    ${out}    ${rc} =    Execute Command
-    ...    runagent -m ${piler_module_id} podman exec -i mariadb-app mysql -N -s -e "USE piler; ${sql}"
-    ...    return_rc=True
-    Should Be Equal As Integers    ${rc}    0
-    RETURN    ${out.strip()}
-
 Archived count should be
     [Arguments]    ${subject_like}    ${expected}
     ${count} =    Piler query    SELECT count(*) FROM metadata WHERE subject LIKE '${subject_like}';
@@ -77,6 +70,11 @@ Process runs
     ${rc}    ${out} =    In container    pgrep -x ${name}
     Should Be Equal As Integers    ${rc}    0    ${name} is not running
 
+Web UI reaches its database
+    ${out} =    Execute Command    curl -s ${backend_url}
+    Should Contain    ${out}    content="piler email archiver"
+    Should Not Contain    ${out}    SQLSTATE
+
 Spool holds mail
     ${rc}    ${out} =    In container    find /var/piler/tmp -type f | wc -l
     Should Be True    ${out} > 0
@@ -93,6 +91,19 @@ Tag this run
     ${traefik} =    Execute Command    redis-cli get node/${node.strip()}/default_instance/traefik
     ${route} =    Run task    module/${traefik.strip()}/get-route    {"instance":"${piler_module_id}"}
     Set Suite Variable    ${backend_url}    ${route}[url]
+
+Reload keeps the database settings
+    # A reload used to rewrite config-site.php without the settings the
+    # entrypoint adds, and the web UI lost its database until a restart.
+    ${started} =    Execute Command    runagent -m ${piler_module_id} podman inspect piler-app --format '{{.State.StartedAt}}'
+    ${rc} =    Execute Command    runagent -m ${piler_module_id} systemctl --user reload piler-app
+    ...    return_rc=True    return_stdout=False
+    Should Be Equal As Integers    ${rc}    0
+    # A broken reload took the pod down some seconds later, not at once.
+    Sleep    20 seconds
+    ${after} =    Execute Command    runagent -m ${piler_module_id} podman inspect piler-app --format '{{.State.StartedAt}}'
+    Should Be Equal    ${after}    ${started}    piler-app restarted after the reload
+    Web UI reaches its database
 
 Admin logs in to the health page
     ${location} =    Login redirect    admin@local    pilerrocks    ${admin_cookie}
