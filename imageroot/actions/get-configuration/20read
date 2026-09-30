@@ -39,7 +39,7 @@ for key in agent.list_service_providers(rdb,'imap','tcp'):
         "module_id": key['module_id'],
         "module_uuid": key['module_uuid'],
         "mail_hostname": key['mail_hostname'],
-        "ui_name" : "" if key['ui_name'] == None else key['ui_name'],
+        "ui_name" : "" if key['ui_name'] is None else key['ui_name'],
         "node": key['node'],
         "node_name": node_name,
         "bcc_set": get_always_bcc(key['module_id'])
