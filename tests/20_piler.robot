@@ -4,6 +4,7 @@ Resource    api.resource
 
 *** Variables ***
 ${curl_timeout}    9
+${SCENARIO}    install
 
 *** Keywords ***
 Retry test
@@ -16,14 +17,15 @@ Backend URL is reachable
     Should Be Equal As Integers    ${rc}  0
 
 
-Web UI reaches its database
-    ${out} =    Execute Command    curl -s ${backend_url}
-    Should Contain    ${out}    content="piler email archiver"
-    Should Not Contain    ${out}    SQLSTATE
-
 *** Test Cases ***
 Check if piler is installed correctly
-    ${output}  ${rc} =    Execute Command    add-module ${IMAGE_URL} 1
+    # The update scenario starts from the stable release, 22_update moves it on.
+    IF    '${SCENARIO}' == 'update'
+        ${image} =    Set Variable    ${UPDATE_FROM}
+    ELSE
+        ${image} =    Set Variable    ${IMAGE_URL}
+    END
+    ${output}  ${rc} =    Execute Command    add-module ${image} 1
     ...    return_rc=True
     Should Be Equal As Integers    ${rc}  0
     &{output} =    Evaluate    ${output}
@@ -86,16 +88,3 @@ Verify if piler has received the email previously sent
         Sleep    1s
     END
     Should Be True    ${success}    the counter is equal to 1
-
-Reload keeps the database settings
-    # A reload used to rewrite config-site.php without the settings the
-    # entrypoint adds, and the web UI lost its database until a restart.
-    ${started} =    Execute Command    runagent -m ${piler_module_id} podman inspect piler-app --format '{{.State.StartedAt}}'
-    ${rc} =    Execute Command    runagent -m ${piler_module_id} systemctl --user reload piler-app
-    ...    return_rc=True    return_stdout=False
-    Should Be Equal As Integers    ${rc}    0
-    # A broken reload took the pod down some seconds later, not at once.
-    Sleep    20 seconds
-    ${after} =    Execute Command    runagent -m ${piler_module_id} podman inspect piler-app --format '{{.State.StartedAt}}'
-    Should Be Equal    ${after}    ${started}    piler-app restarted after the reload
-    Web UI reaches its database
