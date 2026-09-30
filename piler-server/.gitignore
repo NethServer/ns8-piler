@@ -1,0 +1,4 @@
+.claude/
+*.pem
+*.key
+*.crt
