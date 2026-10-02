@@ -41,7 +41,7 @@
       "matchDatasources": ["docker"],
       "matchPackageNames": ["ubuntu"],
       "matchFileNames": ["piler-server/Dockerfile"],
-      "versioning": "loose",
+      "versioning": "regex:^resolute-(?<major>\\d{4})(?<minor>\\d{2})(?<patch>\\d{2})(\\.(?<build>\\d+))?$",
       "groupName": "ubuntu resolute base image"
     }
   ]
