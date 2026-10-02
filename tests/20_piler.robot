@@ -4,6 +4,7 @@ Resource    api.resource
 
 *** Variables ***
 ${curl_timeout}    9
+${SCENARIO}    install
 
 *** Keywords ***
 Retry test
@@ -18,7 +19,13 @@ Backend URL is reachable
 
 *** Test Cases ***
 Check if piler is installed correctly
-    ${output}  ${rc} =    Execute Command    add-module ${IMAGE_URL} 1
+    # By name, NS8 installs the stable release; 22_update moves it to the image under test.
+    IF    '${SCENARIO}' == 'update'
+        ${image} =    Set Variable    piler
+    ELSE
+        ${image} =    Set Variable    ${IMAGE_URL}
+    END
+    ${output}  ${rc} =    Execute Command    add-module ${image} 1
     ...    return_rc=True
     Should Be Equal As Integers    ${rc}  0
     &{output} =    Evaluate    ${output}

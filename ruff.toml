@@ -1,0 +1,5 @@
+[lint]
+# Real errors only. Long lines are common in the NS8 actions and say nothing
+# about correctness.
+select = ["E", "F"]
+ignore = ["E501"]

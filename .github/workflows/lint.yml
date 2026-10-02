@@ -1,0 +1,91 @@
+name: lint
+
+# Needs no registry credentials and no build, so it runs on fork PRs too.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch: {}
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: shellcheck
+        # Explicit, for pipefail: the default bash -e would let the sed hide a failure.
+        shell: bash
+        run: |
+          # By shebang: most scripts have no extension. The UI has its own tooling.
+          mapfile -t files < <(git ls-files ':!ui' | while read -r f; do
+            head -n1 "$f" | grep -qE '^#!.*(/bash|/sh)( |$)' && echo "$f"
+          done)
+          # gcc output turned into annotations on the PR diff.
+          docker run --rm -v "${PWD}:/mnt" -w /mnt docker.io/koalaman/shellcheck:v0.11.0 \
+            --severity=warning -f gcc "${files[@]}" |
+            sed -E 's/^([^:]+):([0-9]+):([0-9]+): (warning|error): (.*)$/::\4 file=\1,line=\2,col=\3::\5/'
+
+  ruff:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: ruff
+        # Explicit, for pipefail: the default bash -e would let the sed hide a failure.
+        shell: bash
+        run: |
+          # Actions have no .py extension, so ruff would never find them alone.
+          mapfile -t files < <(git ls-files ':!ui' | while read -r f; do
+            case "$f" in *.py) echo "$f"; continue ;; esac
+            head -n1 "$f" | grep -qE '^#!.*python' && echo "$f"
+          done)
+          # ruff prints the in-container path, GitHub needs it repo-relative.
+          docker run --rm -v "${PWD}:/mnt" -w /mnt ghcr.io/astral-sh/ruff:0.16.9 \
+            check --no-cache --output-format github "${files[@]}" |
+            sed 's|file=/mnt/|file=|'
+
+  hadolint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: hadolint
+        working-directory: piler-server
+        run: |
+          docker run --rm -i -v "${PWD}/.hadolint.yaml:/.hadolint.yaml" \
+            docker.io/hadolint/hadolint:v2.15.1 hadolint --no-color - < Dockerfile
+
+  entrypoint-config:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      # The PHP assertions are the point of this job.
+      - name: Check php is available
+        run: php --version
+
+      - name: Config generation tests
+        working-directory: piler-server
+        run: tests/entrypoint-config-test.sh

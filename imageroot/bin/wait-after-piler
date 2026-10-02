@@ -8,7 +8,9 @@ exec 1>&2 # Redirect any output to the journal (stderr)
 # Wait for the piler-app container to be active
 active=0
 for ((i = 0; i < 60; i++)); do
-    if podman exec piler-app /etc/init.d/rc.piler status | grep 'piler is running'; then
+    # set -e would end the loop on the first failed exec, before the retries.
+    status=$(podman exec piler-app /etc/init.d/rc.piler status) || true
+    if grep -q 'piler is running' <<< "$status" && grep -q 'piler-smtp is running' <<< "$status"; then
         active=1
         break
     fi

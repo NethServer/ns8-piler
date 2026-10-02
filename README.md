@@ -1,8 +1,11 @@
 # ns8-piler
 
 Start and configure a piler instance.
-- The module uses [piler Docker Image](https://hub.docker.com/r/sutoj/piler).
-- The code source and the link to raise issues to the project developer can be found at [github piler](https://github.com/jsuto/piler)
+- The module runs [piler](https://github.com/jsuto/piler) inside a container
+  image this repo builds itself, `piler-server/` - see
+  [piler-server/README.md](piler-server/README.md) for the image (rootless
+  design, environment variables, CI).
+- To raise an issue against piler itself, use [github piler](https://github.com/jsuto/piler).
 
 ## Install
 
@@ -15,6 +18,11 @@ Output example:
 
     {"module_id": "piler1", "image_name": "piler", "image_url": "ghcr.io/nethserver/piler:latest"}
 
+## Update
+
+Updates start from 1.2.3. The `org.nethserver.min-from` label keeps this version
+from being offered to an older instance, so update that one to 1.2.3 first.
+
 ## Configure
 
 Let's assume that the piler instance is named `piler1`.
@@ -23,6 +31,8 @@ Launch `configure-module`, by setting the following parameters:
 - `host`: a fully qualified domain name for the application
 - `http2https`: enable or disable HTTP to HTTPS redirection
 - `lets_encrypt`: enable or disable Let's Encrypt certificate
+- `mail_server`: UUID of the mail module whose mail piler archives
+- `retention_days`: how many days piler keeps an email
 
 Example:
 
@@ -32,7 +42,8 @@ Example:
       "host": "piler.domain.com",
       "http2https": true,
       "lets_encrypt": false,
-      "mail_server": "c990d0d0-6216-4651-9d0b-d393117d0f7e"
+      "mail_server": "c990d0d0-6216-4651-9d0b-d393117d0f7e",
+      "retention_days": 2557
     }
 EOF
 ```
@@ -54,7 +65,8 @@ api-cli run get-configuration --agent module/piler1 --data null | jq
   "http2https": true,
   "lets_encrypt": false,
   "mail_server": "c990d0d0-6216-4651-9d0b-d393117d0f7e",
-  "mail_server_URL": []
+  "mail_server_URL": [],
+  "retention_days": 2557
 }
 ```
 
@@ -72,11 +84,36 @@ nano template/config-site.php.local
 systemctl restart --user piler.service
 ```
 
+The container writes some keys itself, on every start, from the `--env` values in
+`piler-app.service`. Editing these in a `.local` copy has no effect; change the
+matching `--env` instead:
+
+`DB_HOSTNAME`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, `SPHINX_HOSTNAME`,
+`SPHINX_HOSTNAME_READONLY`, `$memcached_server`, `RT`, and in `piler.conf` the
+keys its own header lists.
+
+`RT` is there because manticore runs in its own container and the image ships no
+`indexer`, so real-time indexing is the only mode it can do. Nothing to set,
+nothing to remember.
+
+Everything else is yours, including `SPHINX_MAIN_INDEX`, `MEMCACHED_ENABLED`,
+`RELOAD_COMMAND` and the binary paths: the container supplies those only when the
+file does not already state them.
+
 ## Uninstall
 
 To uninstall the instance:
 
     remove-module --no-preserve piler1
+
+## CI
+
+This repository publishes two images from one pipeline: `build-piler-server.yml`
+builds `ghcr.io/nethserver/piler-server` from `piler-server/Dockerfile`, then
+`publish-images.yml` builds the module image `ghcr.io/nethserver/piler`, whose
+`org.nethserver.images` label names the tag the first job just pushed. See
+[piler-server/README.md](piler-server/README.md#ci) for the piler-server-specific
+workflows.
 
 ## Running tests locally
 
@@ -98,9 +135,30 @@ This can be done by adapting the `/etc/postfix/transport/`
 
 ## Import emails to piler
 
-Previous emails are sent automatically one time to piler after the first configuration, but if you want to launch manually the synchronisation, you can trigger this service in the terminal:
+Piler archives new emails as they are delivered. Emails already in the mailboxes are not imported automatically. To import every mailbox of the configured mail server, run:
 
     runagent -m piler1 import-emails
+
+To import only a time range, pass a unix timestamp. The emails are filtered on their `Date` header:
+
+    runagent -m piler1 import-emails -A 1735689600                 # sent after
+    runagent -m piler1 import-emails -B 1735689600                 # sent before
+    runagent -m piler1 import-emails -A 1704067200 -B 1735689600   # both
+
+The import can be run again safely: piler skips the emails it already has. Emails without a `Message-ID` header are the exception, piler archives them again on every run.
+
+Only one import runs at a time. Stopping it with Ctrl-C finishes the batch in progress first.
+
+To go easier on a busy server, raise the pause between two emails, 200 ms by default. Keep it under 1000 ms: from 1000 up, pilerimport silently skips the pause.
+
+    runagent -m piler1 env PILER_IMPORT_DELAY_MS=500 import-emails
+
+Other variables, passed the same way:
+
+- `PILER_IMPORT_BATCH`: emails fetched before each pilerimport run, 20 by default.
+- `PILER_IMPORT_LOAD_LIMIT`: pause the archiver while the 1 minute load average is above this value. 0, the default, turns it off.
+- `PILER_IMPORT_SKIP_USERS`: comma separated users never imported, `root` by default.
+- `PILER_IMPORT_TMPDIR`: where emails wait inside the container before import, `/var/piler/imap` by default.
 
 ## Recreate The Index Data Files
 

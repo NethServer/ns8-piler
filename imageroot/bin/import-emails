@@ -5,11 +5,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
+import signal
 import subprocess
 import sys
+import time
 import os
 import agent
 import argparse
+import fcntl
 
 parser = argparse.ArgumentParser(description='Script for importing user mailboxes from an IMAP server into the mail piler archive')
 parser.add_argument('-A', '--after', metavar='AFTER_TIMESTAMP', type=str,
@@ -19,14 +22,32 @@ parser.add_argument('-B', '--before', metavar='BEFORE_TIMESTAMP', type=str,
 
 args = parser.parse_args()
 
-timestamp = []
-
+# Left to pilerimport: it filters on the Date header to the second, IMAP only by day.
+time_filter = []
 if args.after is not None:
-    print("Import emails after timestamp:", args.after,  file=sys.stderr)
-    timestamp += ['-A', args.after]
-elif args.before is not None:
-    print("Import emails before timestamp:", args.before,  file=sys.stderr)
-    timestamp += ['-B', args.before]
+    print("Import emails after timestamp:", args.after, file=sys.stderr)
+    time_filter += ['-A', args.after]
+if args.before is not None:
+    print("Import emails before timestamp:", args.before, file=sys.stderr)
+    time_filter += ['-B', args.before]
+
+# Not /var/piler/tmp, the spool the stop drain counts, nor /var/piler/store,
+# which is backed up.
+tmpdir = os.getenv('PILER_IMPORT_TMPDIR', '/var/piler/imap')
+batch = os.getenv('PILER_IMPORT_BATCH', '20')
+# The 200ms the old pilerimport -i call used. A load limit of 0 turns it off.
+delay_ms = os.getenv('PILER_IMPORT_DELAY_MS', '200')
+la_limit = os.getenv('PILER_IMPORT_LOAD_LIMIT', '0')
+# list-user-mailboxes reports root, which has no mailbox dovecot will open.
+skip_users = set(filter(None, os.getenv('PILER_IMPORT_SKIP_USERS', 'root').split(',')))
+
+# Two runs would share a user's spool, and the stop handler signals every fetcher.
+lock = open('import-emails.lock', 'w')
+try:
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    print("Another import is already running, try again when it is done", file=sys.stderr)
+    sys.exit(1)
 
 rdb = agent.redis_connect()
 
@@ -34,30 +55,74 @@ providers = agent.list_service_providers(rdb, 'imap', 'tcp', {
     'module_uuid': os.environ['MAIL_SERVER'],
 })
 
-if providers:
-    mail_id = providers[0]["module_id"]
-    ip_address = providers[0]["host"]
+# A removed mail server leaves a dangling UUID, which used to exit 0 silently.
+if not providers:
+    print(f"No IMAP service found for mail server {os.environ['MAIL_SERVER']}, run configure-module again", file=sys.stderr)
+    sys.exit(1)
 
-    # retrieve the list of users
-    response = agent.tasks.run(f"module/{mail_id}", action='list-user-mailboxes')
-    agent.assert_exp(response['exit_code'] == 0)
+mail_id = providers[0]["module_id"]
+ip_address = providers[0]["host"]
 
-    # Extract user names into a list
-    user_list = [user_data["user"] for user_data in response['output'].get("user_mailboxes")]
+response = agent.tasks.run(f"module/{mail_id}", action='list-user-mailboxes')
+agent.assert_exp(response['exit_code'] == 0)
 
-    # retrieve the vmail password
-    response = agent.tasks.run(f"module/{mail_id}", action='reveal-master-credentials')
-    agent.assert_exp(response['exit_code'] == 0)
-    password = response['output']['password']
+user_list = []
+for user_data in response['output'].get("user_mailboxes"):
+    user = user_data["user"]
+    if user in skip_users:
+        print(f"### Skipped {user}, listed in PILER_IMPORT_SKIP_USERS", file=sys.stderr)
+    # dovecot refuses its login, the user may even be gone from the directory.
+    elif not user_data.get("enabled", True):
+        print(f"### Skipped {user}, mailbox is disabled", file=sys.stderr)
+    else:
+        user_list.append(user)
 
-    for user in user_list:
-        try:
-            print(f"### Importing {user} to {os.environ['MODULE_ID']}", file=sys.stderr)
+response = agent.tasks.run(f"module/{mail_id}", action='reveal-master-credentials')
+agent.assert_exp(response['exit_code'] == 0)
+password = response['output']['password']
 
-            subprocess.run([
-                '/usr/bin/podman', 'exec', '-w', '/var/piler/imap', '-u', 'piler', 'piler-app',
-                '/usr/bin/pilerimport', '-Z', '200', *timestamp , '-i',  'imap://'+ip_address, '-u',  f'{user}*vmail', '-p', password, '-P', '143'
-            ])
-        except Exception as e:
-            print(f"### Error to import {user} to {os.environ['MODULE_ID']}: {e}", file=sys.stderr)
-            continue
+stopping = False
+
+
+# podman exec does not forward signals: without this the fetcher outlives us.
+def stop(signum, frame):
+    global stopping
+    stopping = True
+    print("### Stopping after the current batch", file=sys.stderr)
+    subprocess.run(['/usr/bin/podman', 'exec', 'piler-app',
+                    'pkill', '-TERM', '-f', '/usr/local/bin/piler-imap-fetch'])
+
+
+signal.signal(signal.SIGTERM, stop)
+signal.signal(signal.SIGINT, stop)
+
+for user in user_list:
+    if stopping:
+        break
+    try:
+        print(f"### Importing {user} to {os.environ['MODULE_ID']}", file=sys.stderr)
+
+        # Password on stdin, argv shows in ps. Own session, or Ctrl-C kills the
+        # podman client before the batch in hand is done.
+        subprocess.run([
+            '/usr/bin/podman', 'exec', '-i', '-u', 'piler', 'piler-app',
+            '/usr/local/bin/piler-imap-fetch', ip_address, f'{user}*vmail',
+            os.path.join(tmpdir, user), batch, delay_ms, la_limit, *time_filter
+        ], input=password + '\n', text=True, check=True, start_new_session=True)
+    except subprocess.CalledProcessError as e:
+        # The child already said why; str(e) would only dump the command line.
+        print(f"### Skipped {user}, import exited {e.returncode}", file=sys.stderr)
+        continue
+    except Exception as e:
+        print(f"### Error to import {user} to {os.environ['MODULE_ID']}: {e}", file=sys.stderr)
+        continue
+
+if stopping:
+    # systemctl stop also kills the podman client, while the fetcher still runs.
+    for _ in range(120):
+        if subprocess.run(['/usr/bin/podman', 'exec', 'piler-app', 'pgrep', '-f',
+                           '/usr/local/bin/piler-imap-fetch'],
+                          stdout=subprocess.DEVNULL).returncode != 0:
+            break
+        time.sleep(1)
+    sys.exit(143)
