@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG BASE_IMAGE=ubuntu:resolute-20260811.1
+ARG BASE_IMAGE=ubuntu:resolute-20260912
 ARG PILER_VERSION=1.4.9
 # On a version bump, the new sha256 of the amd64 .deb:
 #   curl -fsSL "https://api.github.com/repos/jsuto/piler/releases/tags/piler-<version>" | jq -r '.assets[] | select(.name | test("_amd64\\.deb$")) | .digest' | sed 's/^sha256://'
