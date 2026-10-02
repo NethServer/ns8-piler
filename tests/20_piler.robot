@@ -19,9 +19,9 @@ Backend URL is reachable
 
 *** Test Cases ***
 Check if piler is installed correctly
-    # The update scenario starts from the stable release, 22_update moves it on.
+    # By name, NS8 installs the stable release; 22_update moves it to the image under test.
     IF    '${SCENARIO}' == 'update'
-        ${image} =    Set Variable    ${UPDATE_FROM}
+        ${image} =    Set Variable    piler
     ELSE
         ${image} =    Set Variable    ${IMAGE_URL}
     END
