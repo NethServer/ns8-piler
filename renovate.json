@@ -43,6 +43,12 @@
       "matchFileNames": ["piler-server/Dockerfile"],
       "versioning": "regex:^resolute-(?<major>\\d{4})(?<minor>\\d{2})(?<patch>\\d{2})(\\.(?<build>\\d+))?$",
       "groupName": "ubuntu resolute base image"
+    },
+    {
+      "description": "Stay on the MariaDB 10.11 LTS series",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["mariadb", "docker.io/mariadb"],
+      "allowedVersions": "<11"
     }
   ]
 }
