@@ -29,8 +29,7 @@ final image. amd64 only.
     podman build -t ghcr.io/nethserver/piler-server:dev piler-server
 
 `build-piler-server.yml` builds and pushes it on every push, tagged with the
-ns8-piler ref (the module's `IMAGETAG`), plus `<ref>-<short sha>`, and `latest`
-on `main`.
+ns8-piler ref (the module's `IMAGETAG`), plus `latest` on `main`.
 
 ## CI
 
