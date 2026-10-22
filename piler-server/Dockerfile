@@ -118,6 +118,11 @@ RUN sed -i -E \
     sed -i -E '0,/^server \{/s//server {\n        listen 80 default_server;\n        listen [::]:80 default_server;/' \
       /etc/piler/piler-nginx.conf.dist && \
     ln -sf "$(ls /usr/sbin/php-fpm* | head -n1)" /usr/local/bin/php-fpm && \
+    # Mitigation for CVE-2026-109618/109619 until the base image ships PHP 8.5.12.
+    printf '%s\n' \
+      'session.upload_progress.enabled = Off' \
+      'fatal_error_backtraces = Off' \
+      > "$(ls -d /etc/php/*/fpm/conf.d)/99-cve-2026-109618.ini" && \
     chown -R piler:piler /etc/piler /var/piler /var/log/nginx /var/lib/nginx && \
     # The entrypoint reads *.dist from this snapshot: /etc/piler is a volume and
     # would go stale. Taken after the sed fixes above.
