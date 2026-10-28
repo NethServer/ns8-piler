@@ -135,6 +135,10 @@ COPY config/exit-on-fatal-listener.py /etc/supervisor/exit-on-fatal-listener.py
 COPY config/piler-run.sh /etc/supervisor/piler-run.sh
 COPY config/imap-fetch.py /usr/local/bin/piler-imap-fetch
 COPY config/nginx-real-ip.conf /etc/nginx/conf.d/real-ip.conf
+# Fails the build if nginx.conf stops including conf.d or the file does not parse.
+RUN grep -q 'include /etc/nginx/conf.d/\*\.conf;' /etc/nginx/nginx.conf && \
+    printf 'pid /tmp/t.pid; events {} http { include /etc/nginx/conf.d/real-ip.conf; }' > /tmp/t.conf && \
+    nginx -e /dev/null -t -q -c /tmp/t.conf && rm -f /tmp/t.conf
 RUN chmod +x /entrypoint.sh /etc/supervisor/piler-run.sh /usr/local/bin/piler-imap-fetch && \
     chown -R piler:piler /tmp/piler-conf && \
     chown piler:piler /entrypoint.sh /etc/supervisor/supervisord.conf /etc/supervisor/exit-on-fatal-listener.py /etc/supervisor/piler-run.sh /usr/local/bin/piler-imap-fetch
