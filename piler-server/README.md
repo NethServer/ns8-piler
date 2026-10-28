@@ -17,9 +17,7 @@ archiving server, built for the ns8-piler module. It runs as uid/gid `1000`
 - `config/exit-on-fatal-listener.py`: stops the container when a program goes
   `FATAL`.
 - `config/imap-fetch.py`: the `piler-imap-fetch` used by `import-emails`.
-- `config/php-fpm-pool.conf`: php-fpm pool size and time limits, loaded after
-  Ubuntu's `www.conf`. A request slower than 5 s writes its PHP backtrace to
-  the container log.
+- `config/php-fpm-pool.conf`: php-fpm pool size and time limits.
 - `tests/entrypoint-config-test.sh`: offline tests of the config generation.
 
 ## Build

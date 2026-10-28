@@ -135,9 +135,9 @@ COPY config/exit-on-fatal-listener.py /etc/supervisor/exit-on-fatal-listener.py
 COPY config/piler-run.sh /etc/supervisor/piler-run.sh
 COPY config/imap-fetch.py /usr/local/bin/piler-imap-fetch
 COPY config/php-fpm-pool.conf /tmp/php-fpm-pool.conf
-# The PHP version is in the path, so the file is moved here instead of in COPY.
-RUN mv /tmp/php-fpm-pool.conf "$(ls -d /etc/php/*/fpm/pool.d)/zz-piler.conf"
-RUN chmod +x /entrypoint.sh /etc/supervisor/piler-run.sh /usr/local/bin/piler-imap-fetch && \
+# The PHP version is in the path. Fails on two versions instead of picking one.
+RUN set -- /etc/php/*/fpm/pool.d && [ $# -eq 1 ] && mv /tmp/php-fpm-pool.conf "$1/zz-piler.conf" && \
+    chmod +x /entrypoint.sh /etc/supervisor/piler-run.sh /usr/local/bin/piler-imap-fetch && \
     chown -R piler:piler /tmp/piler-conf && \
     chown piler:piler /entrypoint.sh /etc/supervisor/supervisord.conf /etc/supervisor/exit-on-fatal-listener.py /etc/supervisor/piler-run.sh /usr/local/bin/piler-imap-fetch
 
