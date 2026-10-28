@@ -17,8 +17,7 @@ archiving server, built for the ns8-piler module. It runs as uid/gid `1000`
 - `config/exit-on-fatal-listener.py`: stops the container when a program goes
   `FATAL`.
 - `config/imap-fetch.py`: the `piler-imap-fetch` used by `import-emails`.
-- `config/nginx-real-ip.conf`: makes nginx log the client address from the
-  `X-Forwarded-For` header Traefik adds, instead of Traefik's own address.
+- `config/nginx-real-ip.conf`: client address from Traefik's `X-Forwarded-For`.
 - `tests/entrypoint-config-test.sh`: offline tests of the config generation.
 
 ## Build
