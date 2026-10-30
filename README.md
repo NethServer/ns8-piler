@@ -83,6 +83,13 @@ Piler starts with two local accounts:
 These passwords are public. Change them from the piler web UI right after the
 first configuration.
 
+## User login
+
+Mail users log in to piler with their full email address, like
+`john@example.com`, and their mail password. Piler checks the password against
+the IMAP server of the configured mail server and shows the emails sent to or
+from that address. A login without the domain works too, but shows no email.
+
 ## Get the configuration
 You can retrieve the configuration with
 
