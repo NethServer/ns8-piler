@@ -18,6 +18,7 @@ archiving server, built for the ns8-piler module. It runs as uid/gid `1000`
   `FATAL`.
 - `config/imap-fetch.py`: the `piler-imap-fetch` used by `import-emails`.
 - `config/nginx-real-ip.conf`: client address from Traefik's `X-Real-IP`.
+- `config/php-fpm-pool.conf`: php-fpm pool size and time limits.
 - `tests/entrypoint-config-test.sh`: offline tests of the config generation.
 
 ## Build
