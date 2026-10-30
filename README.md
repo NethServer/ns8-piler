@@ -52,6 +52,8 @@ The above command will:
 - start and configure the piler instance
 - configure a virtual host for traefik to access the instance
 
+The mail server cannot be changed later. To archive another mail server, remove piler and install it again.
+
 ## Get the configuration
 You can retrieve the configuration with
 
