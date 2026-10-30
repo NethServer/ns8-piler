@@ -22,7 +22,7 @@ $config['PILER_BINARY'] = '/usr/sbin/piler';
 
 $config['MEMCACHED_ENABLED'] = 1;
 
-$config['ENABLE_IMAP_AUTH'] = 1;
+$config['ENABLE_IMAP_AUTH'] = 0;
 $config['RESTORE_OVER_IMAP'] = 0;
 $config['IMAP_RESTORE_FOLDER_INBOX'] = 'INBOX';
 $config['IMAP_RESTORE_FOLDER_SENT'] = 'Sent';

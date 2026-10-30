@@ -83,13 +83,6 @@ Piler starts with two local accounts:
 These passwords are public. Change them from the piler web UI right after the
 first configuration.
 
-## User login
-
-Mail users log in to piler with their full email address, like
-`john@example.com`, and their mail password. Piler checks the password against
-the IMAP server of the configured mail server and shows the emails sent to or
-from that address. A login without the domain works too, but shows no email.
-
 ## Get the configuration
 You can retrieve the configuration with
 
@@ -141,6 +134,32 @@ nothing to remember.
 Everything else is yours, including `SPHINX_MAIN_INDEX`, `MEMCACHED_ENABLED`,
 `RELOAD_COMMAND` and the binary paths: the container supplies those only when the
 file does not already state them.
+
+## Let mail users log in
+
+By default only the local accounts can log in, so users who lose an email must
+ask the auditor, who can read every archived email. With IMAP login enabled,
+each user logs in with their own mail account and searches only their own
+emails. Users get back lost emails by themselves, and fewer people need the
+auditor account.
+
+IMAP login is off by default. To turn it on, create the custom configuration
+file described in [Custom configuration files](#custom-configuration-files) and
+set:
+
+```php
+$config['ENABLE_IMAP_AUTH'] = 1;
+```
+
+Keep the other `IMAP_*` values: `IMAP_HOST` is filled with the address of the
+configured mail server, and port 993 with SSL works with it. Restart piler:
+
+    runagent -m piler1 systemctl --user restart piler.service
+
+Users log in with their full email address, like `john@example.com`, and their
+mail password. Piler shows the emails sent to or from that address. A login
+without the domain is accepted too, but shows no email. The local accounts
+`admin@local` and `auditor@local` keep working.
 
 ## Uninstall
 
