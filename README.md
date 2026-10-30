@@ -40,7 +40,9 @@ Launch `configure-module`, by setting the following parameters:
 - `lets_encrypt`: enable or disable Let's Encrypt certificate
 - `mail_server`: UUID of the mail module whose mail piler archives, run
   `runagent -m mail1 printenv MODULE_UUID` to get it
-- `retention_days`: how many days piler keeps an email
+- `retention_days`: how many days piler keeps an email. Piler sets the expiry
+  date when it archives an email, so a change applies only to emails archived
+  after it
 
 Example:
 
@@ -60,7 +62,10 @@ The above command will:
 - start and configure the piler instance
 - configure a virtual host for traefik to access the instance
 
-The mail server cannot be changed later. To archive another mail server, remove piler and install it again.
+The mail server cannot be changed later. To archive another mail server, remove
+piler, install it again on the new mail server, then run `import-emails` (see
+below). Removing piler deletes the whole archive: emails that are no longer in
+the mailboxes cannot be imported again.
 
 ## How mail reaches piler
 
@@ -92,7 +97,11 @@ api-cli run get-configuration --agent module/piler1 --data null | jq
   "lets_encrypt": false,
   "mail_server": "c990d0d0-6216-4651-9d0b-d393117d0f7e",
   "mail_server_URL": [],
-  "retention_days": 2557
+  "retention_days": 2557,
+  "is_default_password_admin": true,
+  "is_default_password_auditor": true,
+  "always_bcc_correctly_set": true,
+  "piler_is_running": true
 }
 ```
 
@@ -141,6 +150,9 @@ The backup includes the database, the archive, the manticore index and the
 custom templates. It also includes `piler.key`: the archive is encrypted with it
 and cannot be read without it. The spool of emails not yet archived is left out
 on purpose, restoring it would mix unarchived mail into an older database.
+
+A restore needs the mail module the backup was taken from, with the same UUID.
+If that mail module is gone, the restore fails with `mail_server_is_not_valid`.
 
 ## CI
 
