@@ -160,6 +160,21 @@ Other variables, passed the same way:
 - `PILER_IMPORT_SKIP_USERS`: comma separated users never imported, `root` by default.
 - `PILER_IMPORT_TMPDIR`: where emails wait inside the container before import, `/var/piler/imap` by default.
 
+## Remove archived messages
+
+A new retention value applies only to messages archived after the change. To free space, an auditor can remove messages from the web interface. This is off by default. To enable it:
+
+    runagent -m piler1
+    cp ../templates/config-site.php templates/config-site.php.local
+    echo "\$config['ENABLE_DELETE'] = 1;" >> templates/config-site.php.local
+    systemctl restart --user piler.service
+
+The auditor selects messages in the search results, clicks the delete icon and enters a reason. Check the selection first: the delete applies to every checked message. Piler keeps the reason and marks the messages as expired, and they leave the search at once. The purge at 03:40 deletes them from the disk. To run it now:
+
+    runagent -m piler1 podman exec piler-app /usr/libexec/piler/purge.sh
+
+Piler keeps a metadata row for each removed message. Messages from or to an address under legal hold are never purged.
+
 ## Recreate The Index Data Files
 
 This is a troubleshooting task, use it only when you have to or you are advised to rebuild the manticore index from scratch.
