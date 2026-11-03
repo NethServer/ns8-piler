@@ -1,11 +1,18 @@
 # ns8-piler
 
-Start and configure a piler instance.
+Email archiving for NethServer 8. The module archives a copy of every email
+sent or received by a [Mail](https://github.com/NethServer/ns8-mail) instance,
+keeps it for a configurable number of days, and lets you search it from a web UI.
+
 - The module runs [piler](https://github.com/jsuto/piler) inside a container
   image this repo builds itself, `piler-server/` - see
   [piler-server/README.md](piler-server/README.md) for the image (rootless
   design, environment variables, CI).
 - To raise an issue against piler itself, use [github piler](https://github.com/jsuto/piler).
+
+## Requirements
+
+A Mail module must already be installed in the cluster.
 
 ## Install
 
@@ -31,8 +38,11 @@ Launch `configure-module`, by setting the following parameters:
 - `host`: a fully qualified domain name for the application
 - `http2https`: enable or disable HTTP to HTTPS redirection
 - `lets_encrypt`: enable or disable Let's Encrypt certificate
-- `mail_server`: UUID of the mail module whose mail piler archives
-- `retention_days`: how many days piler keeps an email
+- `mail_server`: UUID of the mail module whose mail piler archives, run
+  `runagent -m mail1 printenv MODULE_UUID` to get it
+- `retention_days`: how many days piler keeps an email. Piler sets the expiry
+  date when it archives an email, so a change applies only to emails archived
+  after it
 
 Example:
 
@@ -52,6 +62,53 @@ The above command will:
 - start and configure the piler instance
 - configure a virtual host for traefik to access the instance
 
+The mail server cannot be changed later. To archive another mail server, remove
+piler, install it again on the new mail server, then run `import-emails` (see
+below). Removing piler deletes the whole archive: emails that are no longer in
+the mailboxes cannot be imported again.
+
+## How mail reaches piler
+
+`configure-module` sets the mail server up for you. It adds an always BCC to
+`archive@piler1` and a relay rule that sends this address to the piler SMTP
+port. Nothing has to be changed by hand on the mail server.
+
+## Default accounts
+
+Piler starts with two local accounts:
+
+- `admin@local`, password `pilerrocks`: manages users and settings, cannot read emails
+- `auditor@local`, password `auditor`: can search and read every archived email
+
+These passwords are public. Change them from the piler web UI right after the
+first configuration.
+
+## Let mail users log in
+
+By default only the local accounts can log in, so users who lose an email must
+ask the auditor, who can read every archived email. With IMAP login enabled,
+each user logs in with their own mail account and searches only their own
+emails. Users get back lost emails by themselves, and fewer people need the
+auditor account.
+
+IMAP login is off by default. To turn it on, create the custom configuration
+file described in [Custom configuration files](#custom-configuration-files) and
+set:
+
+```php
+$config['ENABLE_IMAP_AUTH'] = 1;
+```
+
+Keep the other `IMAP_*` values: `IMAP_HOST` is filled with the address of the
+configured mail server, and port 993 with SSL works with it. Restart piler:
+
+    runagent -m piler1 systemctl --user restart piler.service
+
+Users log in with their full email address, like `john@example.com`, and their
+mail password. Piler shows the emails sent to or from that address. A login
+without the domain is accepted too, but shows no email. The local accounts
+`admin@local` and `auditor@local` keep working.
+
 ## Get the configuration
 You can retrieve the configuration with
 
@@ -66,20 +123,24 @@ api-cli run get-configuration --agent module/piler1 --data null | jq
   "lets_encrypt": false,
   "mail_server": "c990d0d0-6216-4651-9d0b-d393117d0f7e",
   "mail_server_URL": [],
-  "retention_days": 2557
+  "retention_days": 2557,
+  "is_default_password_admin": true,
+  "is_default_password_auditor": true,
+  "always_bcc_correctly_set": true,
+  "piler_is_running": true
 }
 ```
 
 ## Custom configuration files
 
-You can modify the configuration by adding a config-site.php.local file to the folder `/home/piler1/.config/state/templates`, if the files is present they are used instead of the default one and they are included in the backup of the module
+You can modify the configuration by adding a config-site.php.local file to the folder `/home/piler1/.config/state/templates`, if the file is present it is used instead of the default one and it is included in the backup of the module
 
 ```
 runagent -m piler1
 # copy the source file to be customized
 cp ../templates/config-site.php templates/config-site.php.local 
 # edit the file
-nano template/config-site.php.local
+nano templates/config-site.php.local
 # restart the service
 systemctl restart --user piler.service
 ```
@@ -106,6 +167,19 @@ To uninstall the instance:
 
     remove-module --no-preserve piler1
 
+Removing the instance also removes the always BCC and the relay rule from the
+mail server.
+
+## Backup
+
+The backup includes the database, the archive, the manticore index and the
+custom templates. It also includes `piler.key`: the archive is encrypted with it
+and cannot be read without it. The spool of emails not yet archived is left out
+on purpose, restoring it would mix unarchived mail into an older database.
+
+A restore needs the mail module the backup was taken from, with the same UUID.
+If that mail module is gone, the restore fails with `mail_server_is_not_valid`.
+
 ## CI
 
 This repository publishes two images from one pipeline: `build-piler-server.yml`
@@ -118,20 +192,6 @@ workflows.
 ## Running tests locally
 
 This module uses the NS8 standard testing infrastructure. For instructions on how to run the test suite locally, refer to the [Running tests locally](https://github.com/NethServer/ns8-github-actions/blob/v1/README.md#running-tests-locally) section of NS8 GitHub Actions.
-
-## send email to piler
-
-Piler is waiting email on a TCP port on a random port(>20000/tcp), to send email to the archive system you need
-
-- Bcc email of your domain to archive@piler.domain.com
-- adapt your email server to send email to piler.domain.com on the custom smtp port
-
-This can be done by adapting the `/etc/postfix/transport/`
-
-`piler.domain.com smtp:piler.domain.com:20001`
-
-- postmap the configuration file (if needed) : `postmap /etc/postfix/transport`
-- restart postfix : `systemctl restart postfix`
 
 ## Import emails to piler
 
@@ -160,15 +220,10 @@ Other variables, passed the same way:
 - `PILER_IMPORT_SKIP_USERS`: comma separated users never imported, `root` by default.
 - `PILER_IMPORT_TMPDIR`: where emails wait inside the container before import, `/var/piler/imap` by default.
 
-## Recreate The Index Data Files
+## Recreate the index
 
 This is a troubleshooting task, use it only when you have to or you are advised to rebuild the manticore index from scratch.
 
 Piler relies heavily on the manticore index data. The reindex utility is for healing it if anything goes wrong.
 
     runagent -m piler1 podman exec -w /var/piler/imap piler-app reindex -a -p
-
-
-
-
-Piler understands and manage  duplicated emails.
