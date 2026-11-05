@@ -220,9 +220,33 @@ Other variables, passed the same way:
 - `PILER_IMPORT_SKIP_USERS`: comma separated users never imported, `root` by default.
 - `PILER_IMPORT_TMPDIR`: where emails wait inside the container before import, `/var/piler/imap` by default.
 
-## Remove archived emails
+## Remove old emails from the archive
 
-A new retention value applies only to emails archived after the change, unless you shift the old ones as described in [Apply a new retention to archived emails](#apply-a-new-retention-to-archived-emails). To free space, the `auditor@local` account can remove emails from the web UI. This is off by default. To turn it on, create the custom configuration file described in [Custom configuration files](#custom-configuration-files) and set:
+A new `retention_days` applies only to emails archived after the change. To remove older emails now, mark them as expired.
+
+Set the date. Emails sent before it are removed. The date is in UTC:
+
+    BEFORE=2023-01-01
+
+Count them:
+
+    runagent -m piler1 podman exec mariadb-app mysql piler -e \
+      "SELECT COUNT(*) AS emails FROM metadata WHERE deleted=0 AND sent < UNIX_TIMESTAMP('${BEFORE:?set BEFORE first}')"
+
+Mark them as expired:
+
+    runagent -m piler1 podman exec mariadb-app mysql piler -e \
+      "UPDATE metadata SET retained = UNIX_TIMESTAMP() - 1 WHERE deleted=0 AND sent < UNIX_TIMESTAMP('${BEFORE:?set BEFORE first}'); SELECT ROW_COUNT() AS marked"
+
+The purge at 03:40 deletes them for good. Take a backup first. To purge now:
+
+    runagent -m piler1 podman exec piler-app /usr/libexec/piler/purge.sh
+
+Emails from or to an address under legal hold are kept. The next purge removes them once the hold is lifted.
+
+## Let the auditor remove emails
+
+The `auditor@local` account can remove emails from the web UI. This is off by default. To turn it on, create the custom configuration file described in [Custom configuration files](#custom-configuration-files) and set:
 
     $config['ENABLE_DELETE'] = 1;
 
@@ -235,57 +259,6 @@ The auditor selects emails in the search results, clicks the delete icon and ent
     runagent -m piler1 podman exec piler-app /usr/libexec/piler/purge.sh
 
 Piler keeps a metadata row for each removed email. Emails from or to an address under legal hold are never purged.
-
-## Apply a new retention to archived emails
-
-Piler computes the expiry date of an email once, at archive time, and stores it in the `retained` column of the `metadata` table. It is the arrival date plus the retention, or the sent date plus the retention for imported emails. The purge deletes the emails whose expiry date is past. To apply a new `retention_days` to emails already archived, shift their expiry date by the difference.
-
-The old value is the one in effect when the emails were archived. To find it, list the retention of the archived emails, in days:
-
-    runagent -m piler1 podman exec mariadb-app mysql piler -e "SELECT days, COUNT(*) AS emails FROM (
-      SELECT CASE WHEN (CAST(retained AS SIGNED) - CAST(arrived AS SIGNED)) % 86400 = 0 THEN (CAST(retained AS SIGNED) - CAST(arrived AS SIGNED)) DIV 86400
-                  WHEN (CAST(retained AS SIGNED) - CAST(sent AS SIGNED)) % 86400 = 0 THEN (CAST(retained AS SIGNED) - CAST(sent AS SIGNED)) DIV 86400 END AS days
-      FROM metadata WHERE deleted=0) t GROUP BY days ORDER BY days"
-
-Each line is one retention value with the number of emails archived with it. For example, emails were archived with 3650 days, then the retention was set to 2557:
-
-    days    emails
-    2557    6101
-    3650    5876
-
-The 6101 emails archived after the change already expire after 2557 days. The 5876 older ones still expire after 3650 days. To align them, the old value is 3650 and the new one is 2557.
-
-A line with only a few emails is a coincidence of dates, not a retention value. Ignore it. A `NULL` line counts emails whose date was set another way, for example from the web UI. Leave out the values of your domain retention rules. Emails that matched one of these rules keep their date.
-
-Set the old retention and the new one:
-
-    OLD=3650 NEW=2557
-    D=$(( (NEW - OLD) * 86400 ))
-    WHERE="deleted=0 AND retained IN (arrived + $OLD*86400, sent + $OLD*86400)"
-
-Count the emails to change, and how many expire at once with the new value:
-
-    runagent -m piler1 podman exec mariadb-app mysql piler -e \
-      "SELECT COUNT(*) AS touched, COALESCE(SUM(retained + ${D:?set OLD and NEW first} < UNIX_TIMESTAMP()), 0) AS purgeable FROM metadata WHERE ${WHERE:?set OLD and NEW first}"
-
-Apply the change:
-
-    runagent -m piler1 podman exec mariadb-app mysql piler -e \
-      "UPDATE metadata SET retained = retained + ${D:?set OLD and NEW first} WHERE ${WHERE:?set OLD and NEW first}; SELECT ROW_COUNT() AS updated"
-
-With a shorter retention, the purge at 03:40 deletes the `purgeable` emails for good. Take a backup first. To purge now:
-
-    runagent -m piler1 podman exec piler-app /usr/libexec/piler/purge.sh
-
-If the retention changed more than once, run the commands once for each old value.
-
-The query reads the whole table. It takes under a second for 20,000 emails. On a large archive, the update blocks new archives until it ends. Run it in slices of 50,000 rows instead:
-
-    MAX=$(runagent -m piler1 podman exec mariadb-app mysql piler -N -e "SELECT MAX(id) FROM metadata")
-    for ((i=0; i<MAX; i+=50000)); do
-      runagent -m piler1 podman exec mariadb-app mysql piler -e \
-        "UPDATE metadata SET retained = retained + ${D:?set OLD and NEW first} WHERE id > $i AND id <= $((i+50000)) AND ${WHERE:?set OLD and NEW first}"
-    done
 
 ## Recreate the index
 
