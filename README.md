@@ -273,7 +273,11 @@ Apply the change:
     runagent -m piler1 podman exec mariadb-app mysql piler -e \
       "UPDATE metadata SET retained = retained + ${D:?set OLD and NEW first} WHERE ${WHERE:?set OLD and NEW first}; SELECT ROW_COUNT() AS updated"
 
-With a shorter retention, the next purge deletes the `purgeable` emails for good. Take a backup first. If the retention changed more than once, run the commands once for each old value.
+With a shorter retention, the purge at 03:40 deletes the `purgeable` emails for good. Take a backup first. To purge now:
+
+    runagent -m piler1 podman exec piler-app /usr/libexec/piler/purge.sh
+
+If the retention changed more than once, run the commands once for each old value.
 
 The query reads the whole table. It takes under a second for 20,000 emails. On a large archive, the update blocks new archives until it ends. Run it in slices of 50,000 rows instead:
 
