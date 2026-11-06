@@ -220,6 +220,46 @@ Other variables, passed the same way:
 - `PILER_IMPORT_SKIP_USERS`: comma separated users never imported, `root` by default.
 - `PILER_IMPORT_TMPDIR`: where emails wait inside the container before import, `/var/piler/imap` by default.
 
+## Remove old emails from the archive
+
+A new `retention_days` applies only to emails archived after the change. To remove older emails now, mark them as expired.
+
+Set the date. Emails sent before it are removed. The date is in UTC:
+
+    BEFORE=2023-01-01
+
+Count them:
+
+    runagent -m piler1 podman exec mariadb-app mysql piler -e \
+      "SELECT COUNT(*) AS emails FROM metadata WHERE deleted=0 AND sent < UNIX_TIMESTAMP('${BEFORE:?set BEFORE first}')"
+
+Mark them as expired:
+
+    runagent -m piler1 podman exec mariadb-app mysql piler -e \
+      "UPDATE metadata SET retained = UNIX_TIMESTAMP() - 1 WHERE deleted=0 AND sent < UNIX_TIMESTAMP('${BEFORE:?set BEFORE first}'); SELECT ROW_COUNT() AS marked"
+
+The purge at 03:40 deletes them for good. Take a backup first. To purge now:
+
+    runagent -m piler1 podman exec piler-app /usr/libexec/piler/purge.sh
+
+Emails from or to an address under legal hold are kept. The next purge removes them once the hold is lifted.
+
+## Let the auditor remove emails
+
+The `auditor@local` account can remove emails from the web UI. This is off by default. To turn it on, create the custom configuration file described in [Custom configuration files](#custom-configuration-files) and set:
+
+    $config['ENABLE_DELETE'] = 1;
+
+Restart piler:
+
+    runagent -m piler1 systemctl --user restart piler.service
+
+The auditor selects emails in the search results, clicks the delete icon and enters a reason. Check the selection first: the delete applies to every checked email. Piler keeps the reason, marks the emails as expired, and they leave the search at once. The purge at 03:40 deletes them from the disk. To run it now:
+
+    runagent -m piler1 podman exec piler-app /usr/libexec/piler/purge.sh
+
+Piler keeps a metadata row for each removed email. Emails from or to an address under legal hold are never purged.
+
 ## Recreate the index
 
 This is a troubleshooting task, use it only when you have to or you are advised to rebuild the manticore index from scratch.
