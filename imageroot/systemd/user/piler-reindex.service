@@ -8,7 +8,8 @@
 
 [Unit]
 Description=Rebuild the piler search index
-Requires=piler-app.service
+# Not Requires=: a piler-app restart would stop or restart a reindex of hours.
+Wants=piler-app.service
 After=piler-app.service manticore-app.service
 
 [Service]

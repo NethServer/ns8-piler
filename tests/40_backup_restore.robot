@@ -23,13 +23,13 @@ Index total should be
     ${index} =    Index total
     Should Be Equal    ${index}    ${expected}
 
-Audit total
+Manticore query
+    [Arguments]    ${sql}
     ${out}    ${rc} =    Execute Command
-    ...    runagent -m ${piler_module_id} podman exec manticore-app mysql -h127.0.0.1 -P9306 -N -B -e "SELECT count(*) FROM audit1"
+    ...    runagent -m ${piler_module_id} podman exec manticore-app mysql -h127.0.0.1 -P9306 -N -B -e "${sql}"
     ...    return_rc=True
     Should Be Equal As Integers    ${rc}    0
-    ${count} =    Evaluate    int(re.search(r'\\d+', $out).group())    modules=re
-    RETURN    ${count}
+    RETURN    ${out}
 
 *** Test Cases ***
 Record the archive before the backup
@@ -39,7 +39,6 @@ Record the archive before the backup
     ${key} =    Key checksum
     ${message} =    Message checksum    ${sample}
     ${index} =    Index total
-    ${audit} =    Audit total
     ${uuid} =    Module environment    MODULE_UUID
     ${node} =    Module environment    NODE_ID
     Set Suite Variable    ${archived_total}    ${total}
@@ -47,11 +46,17 @@ Record the archive before the backup
     Set Suite Variable    ${key_sum}    ${key}
     Set Suite Variable    ${message_sum}    ${message}
     Set Suite Variable    ${index_total}    ${index}
-    Set Suite Variable    ${audit_total}    ${audit}
     Set Suite Variable    ${module_uuid}    ${uuid}
     Set Suite Variable    ${module_node}    ${node}
     Set Suite Variable    ${old_module_id}    ${piler_module_id}
     Set Suite Variable    ${restored}    ${FALSE}
+
+Add a tag, a note and an audit row
+    # They live only in manticore, reindex does not rebuild them.
+    Set Suite Variable    ${marker}    backup-marker-${module_uuid}
+    Manticore query    INSERT INTO tag1 (mid, uid, tag) VALUES (1, 1, '${marker}')
+    Manticore query    INSERT INTO note1 (mid, uid, note) VALUES (1, 1, '${marker}')
+    Manticore query    INSERT INTO audit1 (ts, email, action, ipaddr, meta_id, description) VALUES (1, 'test@local', 0, '127.0.0.1', 1, '${marker}')
 
 Use the node local backup repository
     # A repository URL must be unique: reuse the node's one if it exists.
@@ -110,8 +115,10 @@ The archive is restored as it was
     # piler-reindex rebuilds the index in the background after the restore.
     Wait Until Keyword Succeeds    300 seconds    5 seconds
     ...    Index total should be    ${index_total}
-    ${audit} =    Audit total
-    Should Be True    ${audit} >= ${audit_total}    the audit log was not restored
+    FOR    ${table}    IN    tag1    note1    audit1
+        ${out} =    Manticore query    SELECT count(*) FROM ${table} WHERE MATCH('\\"${marker}\\"')
+        Should Match Regexp    ${out}    \\b1\\b    ${table} was not restored
+    END
     ${key} =    Key checksum
     Should Be Equal    ${key}    ${key_sum}
     ${message} =    Message checksum    ${sample_id}
