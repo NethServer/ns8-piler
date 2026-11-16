@@ -1,0 +1,29 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+set -e
+exec 1>&2 # Redirect any output to the journal (stderr)
+
+manticore() {
+    podman exec -i manticore-app mysql -h127.0.0.1 -P9306 "$@"
+}
+
+for ((i = 0; i < 60; i++)); do
+    manticore -e "SHOW TABLES" >/dev/null 2>&1 && break
+    echo "Waiting for manticore-app: $i ..."
+    sleep 1
+done
+
+# Backups taken before manticore.sql existed hold manticore-data instead.
+if [ -f manticore.sql ]; then
+    manticore < manticore.sql
+    rm -vf manticore.sql
+fi
+
+# From the default work dir reindex prints "cannot write current directory!",
+# indexes nothing and still exits 0.
+podman exec -w /var/piler/imap piler-app reindex -a

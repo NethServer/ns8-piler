@@ -18,6 +18,19 @@ The restore has run
     # Without it the checks below would pass against the old module.
     Should Be True    ${restored}    the restore did not complete
 
+Index total should be
+    [Arguments]    ${expected}
+    ${index} =    Index total
+    Should Be Equal    ${index}    ${expected}
+
+Audit total
+    ${out}    ${rc} =    Execute Command
+    ...    runagent -m ${piler_module_id} podman exec manticore-app mysql -h127.0.0.1 -P9306 -N -B -e "SELECT count(*) FROM audit1"
+    ...    return_rc=True
+    Should Be Equal As Integers    ${rc}    0
+    ${count} =    Evaluate    int(re.search(r'\\d+', $out).group())    modules=re
+    RETURN    ${count}
+
 *** Test Cases ***
 Record the archive before the backup
     ${total} =    Piler query    SELECT count(*) FROM metadata;
@@ -26,6 +39,7 @@ Record the archive before the backup
     ${key} =    Key checksum
     ${message} =    Message checksum    ${sample}
     ${index} =    Index total
+    ${audit} =    Audit total
     ${uuid} =    Module environment    MODULE_UUID
     ${node} =    Module environment    NODE_ID
     Set Suite Variable    ${archived_total}    ${total}
@@ -33,6 +47,7 @@ Record the archive before the backup
     Set Suite Variable    ${key_sum}    ${key}
     Set Suite Variable    ${message_sum}    ${message}
     Set Suite Variable    ${index_total}    ${index}
+    Set Suite Variable    ${audit_total}    ${audit}
     Set Suite Variable    ${module_uuid}    ${uuid}
     Set Suite Variable    ${module_node}    ${node}
     Set Suite Variable    ${old_module_id}    ${piler_module_id}
@@ -92,8 +107,11 @@ The archive is restored as it was
     [Setup]    The restore has run
     ${total} =    Piler query    SELECT count(*) FROM metadata;
     Should Be Equal    ${total}    ${archived_total}
-    ${index} =    Index total
-    Should Be Equal    ${index}    ${index_total}
+    # piler-reindex rebuilds the index in the background after the restore.
+    Wait Until Keyword Succeeds    300 seconds    5 seconds
+    ...    Index total should be    ${index_total}
+    ${audit} =    Audit total
+    Should Be True    ${audit} >= ${audit_total}    the audit log was not restored
     ${key} =    Key checksum
     Should Be Equal    ${key}    ${key_sum}
     ${message} =    Message checksum    ${sample_id}

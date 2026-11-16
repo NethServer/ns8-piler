@@ -29,6 +29,10 @@ does not say.
 
 - `pilerimport -i` imports nothing since piler 1.4.9 and exits 0
   (jsuto/piler#506). `import-emails` fetches over IMAP and runs `pilerimport -d`.
+- `reindex` from a read-only work dir prints `cannot write current directory!`,
+  indexes nothing and exits 0. Run it with `-w /var/piler/imap`.
+- Tags, notes and audit live only in manticore (`tag1`, `note1`, `audit1`).
+  `reindex` rebuilds `piler1` only, so the backup dumps the other three.
 - `pilerimport -Z` skips the delay from 1000 ms up (whole value in `tv_nsec`).
 - `podman exec` does not forward signals. Stop a process inside the container
   yourself, as `import-emails` does.

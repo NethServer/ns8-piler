@@ -1,0 +1,19 @@
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Rebuilds the search index after a restore. It can run for hours on a large
+# archive, so the restore starts it without waiting.
+
+[Unit]
+Description=Rebuild the piler search index
+Requires=piler-app.service
+After=piler-app.service manticore-app.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=%E/state/environment
+WorkingDirectory=%E/state
+ExecStart=/usr/local/bin/runagent restore-index
+SyslogIdentifier=%u

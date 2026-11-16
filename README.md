@@ -172,10 +172,18 @@ mail server.
 
 ## Backup
 
-The backup includes the database, the archive, the manticore index and the
-custom templates. It also includes `piler.key`: the archive is encrypted with it
-and cannot be read without it. The spool of emails not yet archived is left out
-on purpose, restoring it would mix unarchived mail into an older database.
+The backup includes the database, the archive, the tags, notes and audit log,
+and the custom templates. It also includes `piler.key`: the archive is
+encrypted with it and cannot be read without it. The spool of emails not yet
+archived is left out on purpose, restoring it would mix unarchived mail into an
+older database.
+
+The search index is not in the backup. After a restore, piler rebuilds it from
+the archive in the background, and the search fills up as it goes. On a test
+archive of 80000 small emails it took one minute, a large archive with
+attachments can take hours. To follow it:
+
+    runagent -m piler1 journalctl --user -fu piler-reindex.service
 
 A restore needs the mail module the backup was taken from, with the same UUID.
 If that mail module is gone, the restore fails with `mail_server_is_not_valid`.

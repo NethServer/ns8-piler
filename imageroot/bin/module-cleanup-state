@@ -5,8 +5,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-rm -vf piler.sql
-
-if systemctl --user -q is-active manticore-app.service; then
-    podman exec manticore-app mysql -h127.0.0.1 -P9306 -e "UNFREEZE piler1, tag1, note1, audit1"
-fi
+rm -vf piler.sql manticore.sql
