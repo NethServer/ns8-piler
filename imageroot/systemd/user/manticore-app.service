@@ -13,7 +13,8 @@ Environment=PODMAN_SYSTEMD_UNIT=%n
 EnvironmentFile=%E/state/environment
 WorkingDirectory=%E/state
 Restart=always
-TimeoutStopSec=70
+# podman kills searchd after -t seconds, which can leave the index half written.
+TimeoutStopSec=90
 ExecStartPre=/bin/rm -f %t/manticore-app.pid %t/manticore-app.ctr-id
 ExecStart=/usr/bin/podman run --conmon-pidfile %t/manticore-app.pid \
     --cidfile %t/manticore-app.ctr-id --cgroups=no-conmon \
@@ -22,7 +23,7 @@ ExecStart=/usr/bin/podman run --conmon-pidfile %t/manticore-app.pid \
     --volume ../templates/manticore.conf:/etc/manticoresearch/manticore.conf:z \
     --volume manticore-data:/var/lib/manticore:z \
     ${MANTICORE_IMAGE}
-ExecStop=/usr/bin/podman stop --ignore --cidfile %t/manticore-app.ctr-id -t 10
+ExecStop=/usr/bin/podman stop --ignore --cidfile %t/manticore-app.ctr-id -t 75
 ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/manticore-app.ctr-id
 ExecReload=/usr/bin/podman kill -s HUP manticore-app
 SyslogIdentifier=%u
