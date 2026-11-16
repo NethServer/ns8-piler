@@ -19,3 +19,19 @@ podman exec mariadb-app mysqldump \
         --single-transaction \
         --quick \
         --add-drop-table  > piler.sql
+
+tables="piler1, tag1, note1, audit1"
+manticore() {
+    podman exec manticore-app mysql -h127.0.0.1 -P9306 -N -B -e "$1"
+}
+
+# A failed restic run skips module-cleanup-state and leaves the tables frozen.
+# FREEZE stacks, so release every leftover lock before taking a new one.
+for _ in $(seq 10); do
+    [ -z "$(manticore "SHOW LOCKS")" ] && break
+    manticore "UNFREEZE ${tables}"
+done
+
+# Restic copies manticore-data while searchd runs. FREEZE flushes the tables
+# and keeps their files unchanged until module-cleanup-state.
+manticore "FREEZE ${tables}" >/dev/null
