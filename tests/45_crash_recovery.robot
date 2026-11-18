@@ -20,7 +20,10 @@ Damage manticore file
 
 Journal should contain
     [Arguments]    ${text}
-    ${out} =    Module command    journalctl --user --since=-10min --no-pager -t manticore-app -t piler-app
+    # Read as root: the module user cannot open the journal files.
+    ${uid} =    Module command    id -u
+    ${out} =    Execute Command
+    ...    journalctl --since=-10min --no-pager -o cat _UID=${uid} _SYSTEMD_USER_UNIT=manticore-app.service + _UID=${uid} _SYSTEMD_USER_UNIT=piler-app.service
     Should Contain    ${out}    ${text}
 
 Index should match the archive from id
@@ -62,7 +65,10 @@ The rebuild resumes where it stopped
 
 Rebuild the whole index after the test
     # The suites after this one expect a complete index.
+    # The saved range keeps a mail arriving after TRUNCATE from hiding the gap.
+    ${max} =    Piler query    SELECT MAX(id) FROM metadata;
     Manticore query    TRUNCATE RTINDEX piler1
+    Module command    echo 1 ${max} > reindex.state
     Module command    systemctl --user restart piler-app.service
     Wait Until Keyword Succeeds    300 seconds    5 seconds
     ...    Index should match the archive from id
