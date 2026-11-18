@@ -14,10 +14,10 @@ exec 1>&2 # Redirect any output to the journal (stderr)
 state=reindex.state
 chunk=10000
 
-if [ ! -f "${state}" ]; then
+# index-check validates the file before piler-app starts.
+if [ ! -f "${state}" ] || ! read -r next to <"${state}"; then
     exit 0
 fi
-read -r next to <"${state}"
 
 # podman exec does not forward signals: without this reindex outlives the unit.
 trap 'podman exec piler-app pkill -TERM -x reindex' TERM INT
