@@ -1,0 +1,41 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Rebuilds the id range "next to" that index-check saved in reindex.state, in
+# chunks, so a stop resumes from the last chunk done instead of from scratch.
+
+set -e
+exec 1>&2 # Redirect any output to the journal (stderr)
+
+state=reindex.state
+chunk=10000
+
+if [ ! -f "${state}" ]; then
+    exit 0
+fi
+read -r next to <"${state}"
+
+# podman exec does not forward signals: without this reindex outlives the unit.
+trap 'podman exec piler-app pkill -TERM -x reindex' TERM INT
+
+echo "Rebuilding the search index from id ${next} to ${to}"
+while [ "${next}" -le "${to}" ]; do
+    end=$((next + chunk - 1))
+    if [ "${end}" -gt "${to}" ]; then
+        end=${to}
+    fi
+    # From the default work dir reindex prints "cannot write current directory!",
+    # indexes nothing and still exits 0.
+    podman exec -w /var/piler/imap piler-app reindex -f "${next}" -t "${end}" &
+    wait $!
+    next=$((end + 1))
+    printf '%d %d\n' "${next}" "${to}" >"${state}.tmp"
+    mv "${state}.tmp" "${state}"
+done
+
+rm -f "${state}"
+echo "The search index is rebuilt"

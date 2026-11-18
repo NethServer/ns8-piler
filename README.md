@@ -181,7 +181,8 @@ older database.
 The search index is not in the backup. After a restore, piler rebuilds it from
 the archive in the background, and the search fills up as it goes. On a test
 archive of 80000 small emails it took one minute, a large archive with
-attachments can take hours. To follow it:
+attachments can take hours. A rebuild stopped by a reboot resumes when piler
+starts again. To follow it:
 
     runagent -m piler1 journalctl --user -fu piler-reindex.service
 

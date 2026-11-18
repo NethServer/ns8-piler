@@ -36,6 +36,10 @@ does not say.
 - A torn `binlog.meta` makes searchd die on start (`invalid meta file`).
   `manticore-repair` moves the binlog and a damaged `piler1` aside, never
   `tag1`, `note1` or `audit1`.
+- `index-check` must run before piler-smtp takes mail: one new indexed mail
+  raises `MAX(id)` of `piler1` and hides the gap. It saves the range in
+  `state/reindex.state`, which `reindex-resume` works through in chunks.
+  `module-cleanup-state` must not remove it.
 - `pilerimport -Z` skips the delay from 1000 ms up (whole value in `tv_nsec`).
 - `podman exec` does not forward signals. Stop a process inside the container
   yourself, as `import-emails` does.

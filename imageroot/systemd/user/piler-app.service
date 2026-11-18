@@ -7,6 +7,7 @@
 Description=Podman  piler-app.service
 BindsTo=piler.service
 After=piler.service mariadb-app.service memcached-app.service manticore-app.service
+Wants=piler-reindex.service
 
 [Service]
 Environment=PODMAN_SYSTEMD_UNIT=%n
@@ -17,6 +18,7 @@ TimeoutStopSec=70
 ExecStartPre=/bin/mkdir -vp piler_etc templates
 ExecStartPre=/usr/local/bin/runagent expand-configuration
 ExecStartPre=/usr/local/bin/runagent copy-piler-config
+ExecStartPre=/usr/local/bin/runagent index-check
 ExecStartPre=/bin/rm -f %t/piler-app.pid %t/piler-app.ctr-id
 ExecStart=/usr/bin/podman run --conmon-pidfile %t/piler-app.pid \
     --cidfile %t/piler-app.ctr-id --cgroups=no-conmon \
