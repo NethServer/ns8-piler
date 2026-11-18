@@ -27,6 +27,12 @@ has_magic() {
     [ ! -e "$1" ] || [ "$(head -c 4 "$1")" = "$2" ]
 }
 
+# Table metas are JSON, older manticore wrote SPRT binary: accept both, as searchd does.
+table_meta_ok() {
+    [ ! -e "$1" ] || [ "$(head -c 4 "$1")" = SPRT ] ||
+        python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$1" 2>/dev/null
+}
+
 move_aside() {
     mkdir -p "${broken}"
     mv -v "$@" "${broken}/"
@@ -42,13 +48,13 @@ if ! has_magic binlog.meta SPLI; then
 fi
 
 # piler1 is rebuilt from the archive once manticore creates it again empty.
-if ! has_magic piler1.meta SPRT; then
+if ! table_meta_ok piler1.meta; then
     move_aside piler1.*
     echo "Warning: piler1.meta is damaged and the search index is moved to ${broken}. It is rebuilt from the archive."
 fi
 
 for table in tag1 note1 audit1; do
-    if ! has_magic "${table}.meta" SPRT; then
+    if ! table_meta_ok "${table}.meta"; then
         echo "Error: ${table}.meta is damaged in $1. The ${table} table cannot be read and is not repaired."
     fi
 done
