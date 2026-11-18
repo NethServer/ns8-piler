@@ -30,6 +30,11 @@ for ((i = 0; i < 30; i++)); do
     sleep 1
 done
 
+# On a new install the piler-app entrypoint creates the schema: nothing to index yet.
+if [ "$(mariadb "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='piler' AND table_name='metadata'" 2>/dev/null)" = 0 ]; then
+    exit 0
+fi
+
 # Fail rather than skip: once piler-smtp indexes new mail, the gap is hidden.
 # Restart=always retries until both answer, the MTA queues mail meanwhile.
 if ! hi=$(mariadb "SELECT COALESCE(MAX(id), 0) FROM metadata WHERE deleted=0") ||
