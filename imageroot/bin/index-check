@@ -22,25 +22,33 @@ manticore() {
     podman exec manticore-app mysql -h127.0.0.1 -P9306 -N -B -e "$1" | awk 'match($0, /[0-9]+/) { print substr($0, RSTART, RLENGTH); exit }'
 }
 
-# Kept short: the wait counts in the start timeout of piler-app.
-for ((i = 0; i < 30; i++)); do
+# A first start of mariadb on a slow disk takes long. TimeoutStartSec of
+# piler-app leaves room for this wait.
+for ((i = 0; i < 120; i++)); do
     if mariadb "SELECT 1" >/dev/null 2>&1 && manticore "SHOW TABLES" >/dev/null 2>&1; then
         break
     fi
     sleep 1
 done
 
+# Fail rather than skip: once piler-smtp indexes new mail, the gap is hidden.
+# Restart=always retries until both answer, the MTA queues mail meanwhile.
+not_ready() {
+    echo "mariadb-app or manticore-app is not ready, the search index cannot be checked."
+    exit 1
+}
+
+if ! tables=$(mariadb "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='piler' AND table_name='metadata'"); then
+    not_ready
+fi
 # On a new install the piler-app entrypoint creates the schema: nothing to index yet.
-if [ "$(mariadb "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='piler' AND table_name='metadata'" 2>/dev/null)" = 0 ]; then
+if [ "${tables}" = 0 ]; then
     exit 0
 fi
 
-# Fail rather than skip: once piler-smtp indexes new mail, the gap is hidden.
-# Restart=always retries until both answer, the MTA queues mail meanwhile.
 if ! hi=$(mariadb "SELECT COALESCE(MAX(id), 0) FROM metadata WHERE deleted=0") ||
     ! lo=$(manticore "SELECT MAX(id) FROM piler1"); then
-    echo "mariadb-app or manticore-app is not ready, the search index cannot be checked."
-    exit 1
+    not_ready
 fi
 lo=${lo:-0}
 
