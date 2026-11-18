@@ -22,11 +22,17 @@ podman exec mariadb-app mysqldump \
 
 # The search index is rebuilt from the store on restore, tags, notes and audit
 # are not. This mysqldump is from the manticore image: the mariadb one fails.
-podman exec manticore-app mysqldump -h127.0.0.1 -P9306 \
+# One table at a time: a damaged table must not fail the whole backup.
+: >manticore.sql
+for table in tag1 note1 audit1; do
+    if ! podman exec manticore-app mysqldump -h127.0.0.1 -P9306 \
         --no-create-info \
         --replace \
         --skip-add-locks \
         --skip-lock-tables \
         --no-tablespaces \
         --column-statistics=0 \
-        manticore tag1 note1 audit1 > manticore.sql
+        manticore "${table}" >>manticore.sql; then
+        echo "Warning: the ${table} table cannot be read and is left out of the backup." >&2
+    fi
+done
