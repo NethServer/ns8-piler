@@ -109,6 +109,9 @@ A torn tag table is kept and left out of the backup
     ${dump} =    Module command    cat manticore.sql
     Should Not Contain    ${dump}    `tag1`
     Should Contain    ${dump}    `audit1`
+    Module command    test ! -e manticore.sql.part
+    # The restore loads this file and stops on a statement cut short.
+    Module command    podman exec -i manticore-app mysql -h127.0.0.1 -P9306 < manticore.sql
     Module command    module-cleanup-state
 
 The rebuild resumes where it stopped
