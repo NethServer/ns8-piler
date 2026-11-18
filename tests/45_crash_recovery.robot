@@ -148,6 +148,22 @@ A torn rebuild state is dropped
     Module command    test ! -e reindex.state
     Index should be complete
 
+A rebuild follows a range saved while it runs
+    # A piler-app restart can leave the old rebuild running beside index-check.
+    ${max} =    Piler query    SELECT MAX(id) FROM metadata;
+    ${first} =    Evaluate    ${max} + 1
+    ${far} =    Evaluate    ${max} + 500000
+    Manticore query    TRUNCATE RTINDEX piler1
+    Module command    echo ${first} ${far} > reindex.state
+    ${since} =    Now
+    Module command    systemctl --user start piler-reindex.service
+    Sleep    3 seconds
+    Module command    echo 1 ${max} > reindex.state
+    Index should be complete
+    Journal should contain    ${since}    The range changed, rebuilding the search index from id 1 to ${max}
+    Wait Until Keyword Succeeds    60 seconds    5 seconds
+    ...    Module command    test ! -e reindex.state
+
 Rebuild the whole index after the test
     # The suites after this one expect a complete index.
     # The saved range keeps a mail arriving after TRUNCATE from hiding the gap.
