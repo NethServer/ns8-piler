@@ -20,7 +20,8 @@ if [ ! -f "${state}" ] || ! read -r next to <"${state}"; then
 fi
 
 # podman exec does not forward signals: without this reindex outlives the unit.
-trap 'podman exec piler-app pkill -TERM -x reindex' TERM INT
+# Exit too, or a signal between two chunks starts the next one.
+trap 'podman exec piler-app pkill -TERM -x reindex; exit 143' TERM INT
 
 echo "Rebuilding the search index from id ${next} to ${to}"
 while [ "${next}" -le "${to}" ]; do
