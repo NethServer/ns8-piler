@@ -33,6 +33,9 @@ does not say.
   indexes nothing and exits 0. Run it with `-w /var/piler/imap`.
 - Tags, notes and audit live only in manticore (`tag1`, `note1`, `audit1`).
   `reindex` rebuilds `piler1` only, so the backup dumps the other three.
+- A torn `binlog.meta` makes searchd die on start (`invalid meta file`).
+  `manticore-repair` moves the binlog and a damaged `piler1` aside, never
+  `tag1`, `note1` or `audit1`.
 - `pilerimport -Z` skips the delay from 1000 ms up (whole value in `tv_nsec`).
 - `podman exec` does not forward signals. Stop a process inside the container
   yourself, as `import-emails` does.

@@ -1,0 +1,55 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# A power loss can leave a manticore file torn. searchd then dies on start and
+# the pod loops (NethServer/dev#8326). Move aside what piler can rebuild, never
+# what it cannot.
+
+set -e
+exec 1>&2 # Redirect any output to the journal (stderr)
+
+if ! dir=$(podman volume inspect manticore-data --format '{{.Mountpoint}}' 2>/dev/null); then
+    exit 0
+fi
+
+# The files belong to the container user: only podman unshare can move them.
+podman unshare bash -s -- "${dir}" <<'EOS'
+set -e
+cd "$1"
+broken="broken-$(date +%Y%m%d-%H%M%S)"
+
+# True when the file is missing, or starts with the magic of its format.
+has_magic() {
+    [ ! -e "$1" ] || [ "$(head -c 4 "$1")" = "$2" ]
+}
+
+move_aside() {
+    mkdir -p "${broken}"
+    mv -v "$@" "${broken}/"
+}
+
+if ! has_magic binlog.meta SPLI; then
+    last=$(find . -maxdepth 1 -name '*.meta' ! -name binlog.meta -printf '%T@\n' | sort -n | tail -1)
+    move_aside binlog.*
+    echo "Warning: binlog.meta is damaged and the binlog is moved to ${broken}."
+    if [ -n "${last}" ]; then
+        echo "Warning: tags, notes and audit written after $(date -d "@${last%.*}" '+%F %T %Z') are lost."
+    fi
+fi
+
+# piler1 is rebuilt from the archive once manticore creates it again empty.
+if ! has_magic piler1.meta SPRT; then
+    move_aside piler1.*
+    echo "Warning: piler1.meta is damaged and the search index is moved to ${broken}. It is rebuilt from the archive."
+fi
+
+for table in tag1 note1 audit1; do
+    if ! has_magic "${table}.meta" SPRT; then
+        echo "Error: ${table}.meta is damaged in $1. The ${table} table cannot be read and is not repaired."
+    fi
+done
+EOS

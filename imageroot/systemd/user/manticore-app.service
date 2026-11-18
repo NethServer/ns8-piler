@@ -15,13 +15,18 @@ WorkingDirectory=%E/state
 Restart=always
 TimeoutStopSec=70
 ExecStartPre=/bin/rm -f %t/manticore-app.pid %t/manticore-app.ctr-id
+ExecStartPre=/usr/local/bin/runagent manticore-repair
+# The image CMD plus --replay-flags: a binlog torn mid transaction loses its
+# tail instead of stopping searchd.
 ExecStart=/usr/bin/podman run --conmon-pidfile %t/manticore-app.pid \
     --cidfile %t/manticore-app.ctr-id --cgroups=no-conmon \
     --pod-id-file %t/piler.pod-id --replace -d --name manticore-app \
     --user manticore \
     --volume ../templates/manticore.conf:/etc/manticoresearch/manticore.conf:z \
     --volume manticore-data:/var/lib/manticore:z \
-    ${MANTICORE_IMAGE}
+    ${MANTICORE_IMAGE} \
+    searchd -c /etc/manticoresearch/manticore.conf.sh --nodetach \
+    --replay-flags=ignore-trx-errors
 ExecStop=/usr/bin/podman stop --ignore --cidfile %t/manticore-app.ctr-id -t 10
 ExecStopPost=/usr/bin/podman rm --ignore -f --cidfile %t/manticore-app.ctr-id
 ExecReload=/usr/bin/podman kill -s HUP manticore-app

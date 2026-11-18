@@ -275,3 +275,9 @@ This is a troubleshooting task, use it only when you have to or you are advised 
 Piler relies heavily on the manticore index data. The reindex utility is for healing it if anything goes wrong.
 
     runagent -m piler1 podman exec -w /var/piler/imap piler-app reindex -a -p
+
+After a power loss, piler repairs its search engine on start and rebuilds the
+index in the background. Tags, notes and audit records of the last minutes
+before the power loss can be lost. The damaged files are moved to a
+`broken-<date>` folder of the `manticore-data` volume, remove it once the
+search works again.
