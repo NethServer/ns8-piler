@@ -262,8 +262,39 @@ Piler keeps a metadata row for each removed email. Emails from or to an address 
 
 ## Recreate the index
 
-This is a troubleshooting task, use it only when you have to or you are advised to rebuild the manticore index from scratch.
-
-Piler relies heavily on the manticore index data. The reindex utility is for healing it if anything goes wrong.
+Use this only when you have to, or when support asks you to. Piler searches
+through the manticore index. The archive and the database stay intact, so the
+index can always be rebuilt from them.
 
     runagent -m piler1 podman exec -w /var/piler/imap piler-app reindex -a -p
+
+## Repair a corrupted index
+
+A power cut or a hard kill while manticore writes can leave its files half
+written. manticore-app then stops at start with an error like this one:
+
+    FATAL: invalid meta file /var/lib/manticore/binlog.meta
+    WARNING: table 'piler1': prealloc: invalid meta file /var/lib/manticore/piler1.meta - NOT SERVING
+
+`reindex` alone does not help, it needs manticore running. Move the binlog and
+the `piler1` files aside, start again and rebuild the index:
+
+    runagent -m piler1 systemctl --user stop piler.service
+    runagent -m piler1 podman unshare sh -c '
+      d=$(podman volume inspect manticore-data -f "{{.Mountpoint}}")
+      mkdir -p "$d/broken"
+      mv "$d"/binlog.* "$d"/piler1.* "$d/broken/"'
+    runagent -m piler1 systemctl --user start piler.service
+    runagent -m piler1 podman exec -w /var/piler/imap piler-app reindex -a -p
+
+manticore starts with an empty `piler1` table and the reindex fills it again. It
+takes a while on a large archive. Do not delete the whole volume: the `tag1`,
+`note1` and `audit1` tables hold the tags, notes and audit log, and they exist
+nowhere else. If one of them is reported as corrupted, keep its files and ask
+for help.
+
+Once search works again, remove the old files:
+
+    runagent -m piler1 podman unshare sh -c 'rm -rf "$(podman volume inspect manticore-data -f "{{.Mountpoint}}")/broken"'
+
+On bare metal, a UPS is the best protection against this.
