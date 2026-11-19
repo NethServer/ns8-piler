@@ -1,0 +1,44 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+set -e
+exec 1>&2 # Redirect any output to the journal (stderr)
+
+# Backups taken before manticore.sql existed hold manticore-data, index included.
+if [ ! -f manticore.sql ]; then
+    exit 0
+fi
+
+# Loaded before configure-module starts piler: once it runs, a restored audit
+# row would overwrite a new one with the same id.
+trap 'podman stop --ignore -t 60 restore_manticore >/dev/null; rm -vf manticore.sql' EXIT
+
+podman run \
+    --rm \
+    --detach \
+    --network=none \
+    --user manticore \
+    --volume "${AGENT_INSTALL_DIR}/templates/manticore.conf":/etc/manticoresearch/manticore.conf:z \
+    --volume manticore-data:/var/lib/manticore:z \
+    --replace --name=restore_manticore \
+    "${MANTICORE_IMAGE}"
+
+manticore() {
+    podman exec -i restore_manticore mysql -h127.0.0.1 -P9306 "$@"
+}
+
+for ((i = 0; i < 120; i++)); do
+    manticore -e "SHOW TABLES" >/dev/null 2>&1 && break
+    echo "Waiting for manticore: $i ..."
+    sleep 1
+done
+if ! manticore -e "SHOW TABLES" >/dev/null; then
+    echo "manticore is not ready, tags, notes and audit are not restored."
+    exit 1
+fi
+
+manticore < manticore.sql

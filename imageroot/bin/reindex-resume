@@ -1,0 +1,58 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Rebuilds the id range "next to" that index-check saved in reindex.state, in
+# chunks, so a stop resumes from the last chunk done instead of from scratch.
+
+set -e
+exec 1>&2 # Redirect any output to the journal (stderr)
+
+state=reindex.state
+chunk=10000
+
+# index-check validates the file before piler-app starts.
+if [ ! -f "${state}" ] || ! read -r next to <"${state}"; then
+    exit 0
+fi
+
+# podman exec does not forward signals: without this reindex outlives the unit.
+# Exit too, or a signal between two chunks starts the next one.
+trap 'podman exec piler-app pkill -TERM -x reindex; exit 143' TERM INT
+
+saved="${next} ${to}"
+save() {
+    printf '%d %d\n' "$1" "$2" >"${state}.tmp"
+    mv "${state}.tmp" "${state}"
+    saved="$1 $2"
+}
+
+echo "Rebuilding the search index from id ${next} to ${to}"
+while [ "${next}" -le "${to}" ]; do
+    end=$((next + chunk - 1))
+    if [ "${end}" -gt "${to}" ]; then
+        end=${to}
+    fi
+    # From the default work dir reindex prints "cannot write current directory!",
+    # indexes nothing and still exits 0.
+    podman exec -w /var/piler/imap piler-app reindex -f "${next}" -t "${end}" &
+    wait $!
+    # A piler-app restart can leave this unit running while index-check saves
+    # a new range: follow it instead of writing over it.
+    read -r new_next new_to <"${state}" || exit 0
+    if [ "${new_next} ${new_to}" != "${saved}" ]; then
+        next=${new_next} to=${new_to} saved="${new_next} ${new_to}"
+        echo "The range changed, rebuilding the search index from id ${next} to ${to}"
+        continue
+    fi
+    next=$((end + 1))
+    save "${next}" "${to}"
+done
+
+if [ "$(cat "${state}" 2>/dev/null)" = "${saved}" ]; then
+    rm -f "${state}"
+fi
+echo "The search index is rebuilt"

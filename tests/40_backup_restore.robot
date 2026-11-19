@@ -38,6 +38,13 @@ Record the archive before the backup
     Set Suite Variable    ${old_module_id}    ${piler_module_id}
     Set Suite Variable    ${restored}    ${FALSE}
 
+Add a tag, a note and an audit row
+    # They live only in manticore, reindex does not rebuild them.
+    Set Suite Variable    ${marker}    backup-marker-${module_uuid}
+    Manticore query    INSERT INTO tag1 (mid, uid, tag) VALUES (1, 1, '${marker}')
+    Manticore query    INSERT INTO note1 (mid, uid, note) VALUES (1, 1, '${marker}')
+    Manticore query    INSERT INTO audit1 (ts, email, action, ipaddr, meta_id, description) VALUES (1, 'test@local', 0, '127.0.0.1', 1, '${marker}')
+
 Use the node local backup repository
     # A repository URL must be unique: reuse the node's one if it exists.
     ${ip} =    Execute Command    redis-cli hget node/${module_node}/vpn ip_address
@@ -92,8 +99,13 @@ The archive is restored as it was
     [Setup]    The restore has run
     ${total} =    Piler query    SELECT count(*) FROM metadata;
     Should Be Equal    ${total}    ${archived_total}
-    ${index} =    Index total
-    Should Be Equal    ${index}    ${index_total}
+    # piler-reindex rebuilds the index in the background after the restore.
+    Wait Until Keyword Succeeds    300 seconds    5 seconds
+    ...    Index total should be    ${index_total}
+    FOR    ${table}    IN    tag1    note1    audit1
+        ${out} =    Manticore query    SELECT count(*) FROM ${table} WHERE MATCH('\\"${marker}\\"')
+        Should Match Regexp    ${out}    \\b1\\b    ${table} was not restored
+    END
     ${key} =    Key checksum
     Should Be Equal    ${key}    ${key_sum}
     ${message} =    Message checksum    ${sample_id}

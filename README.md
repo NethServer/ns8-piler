@@ -172,10 +172,19 @@ mail server.
 
 ## Backup
 
-The backup includes the database, the archive, the manticore index and the
-custom templates. It also includes `piler.key`: the archive is encrypted with it
-and cannot be read without it. The spool of emails not yet archived is left out
-on purpose, restoring it would mix unarchived mail into an older database.
+The backup includes the database, the archive, the tags, notes and audit log,
+and the custom templates. It also includes `piler.key`: the archive is
+encrypted with it and cannot be read without it. The spool of emails not yet
+archived is left out on purpose, restoring it would mix unarchived mail into an
+older database.
+
+The search index is not in the backup. After a restore, piler rebuilds it from
+the archive in the background, and the search fills up as it goes. On a test
+archive of 80000 small emails it took one minute, a large archive with
+attachments can take hours. A rebuild stopped by a reboot resumes when piler
+starts again. To follow it:
+
+    runagent -m piler1 journalctl --user -fu piler-reindex.service
 
 A restore needs the mail module the backup was taken from, with the same UUID.
 If that mail module is gone, the restore fails with `mail_server_is_not_valid`.
@@ -267,3 +276,9 @@ This is a troubleshooting task, use it only when you have to or you are advised 
 Piler relies heavily on the manticore index data. The reindex utility is for healing it if anything goes wrong.
 
     runagent -m piler1 podman exec -w /var/piler/imap piler-app reindex -a -p
+
+After a power loss, piler repairs its search engine on start and rebuilds the
+index in the background. Tags, notes and audit records of the last minutes
+before the power loss can be lost. The damaged files are moved to a
+`broken-<date>` folder of the `manticore-data` volume, remove it once the
+search works again.

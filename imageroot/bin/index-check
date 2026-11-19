@@ -1,0 +1,80 @@
+#!/bin/bash
+
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Runs before piler-app accepts mail: once new mail is indexed, MAX(id) of
+# piler1 no longer shows the gap left by a restore or a lost binlog.
+
+set -e -o pipefail
+exec 1>&2 # Redirect any output to the journal (stderr)
+
+state=reindex.state
+
+mariadb() {
+    podman exec mariadb-app mysql -N -s -e "USE piler; $1"
+}
+
+# The manticore client draws a table even with -B: keep the first number.
+manticore() {
+    podman exec manticore-app mysql -h127.0.0.1 -P9306 -N -B -e "$1" | awk 'match($0, /[0-9]+/) { print substr($0, RSTART, RLENGTH); exit }'
+}
+
+# A first start of mariadb on a slow disk takes long. TimeoutStartSec of
+# piler-app leaves room for this wait.
+for ((i = 0; i < 120; i++)); do
+    if mariadb "SELECT 1" >/dev/null 2>&1 && manticore "SHOW TABLES" >/dev/null 2>&1; then
+        break
+    fi
+    sleep 1
+done
+
+# Fail rather than skip: once piler-smtp indexes new mail, the gap is hidden.
+# Restart=always retries until both answer, the MTA queues mail meanwhile.
+not_ready() {
+    echo "mariadb-app or manticore-app is not ready, the search index cannot be checked."
+    exit 1
+}
+
+if ! tables=$(mariadb "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='piler' AND table_name='metadata'"); then
+    not_ready
+fi
+# On a new install the piler-app entrypoint creates the schema: nothing to index yet.
+if [ "${tables}" = 0 ]; then
+    exit 0
+fi
+
+if ! hi=$(mariadb "SELECT COALESCE(MAX(id), 0) FROM metadata WHERE deleted=0") ||
+    ! lo=$(manticore "SELECT MAX(id) FROM piler1"); then
+    not_ready
+fi
+lo=${lo:-0}
+
+# A file torn by a power loss is dropped and the range found again.
+if [ -f "${state}" ] && ! grep -qE '^[0-9]+ [0-9]+$' "${state}"; then
+    echo "Warning: ${state} is damaged and is removed."
+    rm -f "${state}"
+fi
+
+if [ -f "${state}" ]; then
+    read -r next to <"${state}"
+    # piler1 can have lost rows below next since the rebuild stopped.
+    if [ $((lo + 1)) -lt "${next}" ]; then
+        next=$((lo + 1))
+    fi
+    # Mail indexed during the interrupted rebuild can be lost with the binlog.
+    if [ "${hi}" -gt "${to}" ]; then
+        to=${hi}
+    fi
+elif [ "${lo}" -lt "${hi}" ]; then
+    next=$((lo + 1))
+    to=${hi}
+    echo "The search index stops at id ${lo}, the archive at ${hi}: it is rebuilt in the background."
+else
+    exit 0
+fi
+
+printf '%d %d\n' "${next}" "${to}" >"${state}.tmp"
+mv "${state}.tmp" "${state}"

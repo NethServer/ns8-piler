@@ -1,0 +1,23 @@
+#
+# Copyright (C) 2026 Nethesis S.r.l.
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
+# Rebuilds the search index range saved by index-check. It can run for hours
+# on a large archive, and resumes when piler-app starts again.
+
+[Unit]
+Description=Rebuild the piler search index
+PartOf=piler-app.service
+After=piler-app.service
+
+[Service]
+# Not oneshot: a start job would stay queued for the whole rebuild.
+Type=exec
+EnvironmentFile=%E/state/environment
+WorkingDirectory=%E/state
+ExecStart=/usr/local/bin/runagent reindex-resume
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5min
+SyslogIdentifier=%u
